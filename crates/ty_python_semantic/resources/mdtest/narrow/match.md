@@ -786,7 +786,6 @@ def test_match_class_capture_preserves_possible_multiple_inheritance(
         case OverlapCaptureB(member=item) as whole:
             reveal_type(item)  # revealed: int
             reveal_type(whole)  # revealed: OverlapCaptureA & OverlapCaptureB
-
 ```
 
 Mapping patterns use the mapping's key and value types. A successful keyed pattern can filter union
@@ -794,6 +793,7 @@ arms, while `**rest` is always a new `dict` containing the unmatched items.
 
 ```py
 from collections.abc import Mapping
+from enum import IntEnum
 from typing import Literal, TypeVar
 from typing_extensions import Never
 
@@ -824,6 +824,16 @@ def test_match_mapping_key_filters_union_arms(
             reveal_type(item)  # revealed: int
             reveal_type(whole)  # revealed: dict[Literal["a"], int]
 
+class MappingKey(IntEnum):
+    ITEM = 1
+
+def test_match_mapping_intenum_key(
+    value: dict[Literal[1], int],
+) -> None:
+    match value:
+        case {MappingKey.ITEM: item}:
+            reveal_type(item)  # revealed: int
+
 def test_match_mapping_nested_sequence(
     value: Mapping[str, tuple[int, str]],
 ) -> None:
@@ -838,7 +848,6 @@ def test_match_mapping_rejects_empty_key_domain(
     match value:
         case {"item": item}:
             reveal_type(item)  # revealed: Never
-
 ```
 
 For a `TypedDict`, a literal key uses the declared field type. Closed dictionaries can rule out
