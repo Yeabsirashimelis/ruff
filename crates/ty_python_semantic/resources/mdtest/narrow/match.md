@@ -678,6 +678,7 @@ pattern filtering retains that structural overlap instead of treating every non-
 disjoint.
 
 ```py
+from collections.abc import Mapping, MutableMapping
 from typing import Protocol, TypedDict, runtime_checkable
 
 class ProtocolPayload(TypedDict):
@@ -692,6 +693,20 @@ def test_match_typed_dict_alias_preserves_runtime_protocol_overlap(
 ) -> None:
     match value:
         case SizedProtocol() as item:
+            reveal_type(item)  # revealed: ProtocolPayload
+
+def test_match_typed_dict_alias_preserves_mapping_runtime_type(
+    value: ProtocolPayload,
+) -> None:
+    match value:
+        case Mapping() as item:
+            reveal_type(item)  # revealed: ProtocolPayload
+
+def test_match_typed_dict_alias_preserves_mutable_mapping_runtime_type(
+    value: ProtocolPayload,
+) -> None:
+    match value:
+        case MutableMapping() as item:
             reveal_type(item)  # revealed: ProtocolPayload
 ```
 
