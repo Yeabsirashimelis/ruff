@@ -1479,37 +1479,21 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         class: Option<ClassLiteral<'db>>,
         class_ty: Type<'db>,
         subject_ty: Type<'db>,
-        filter_nominal_arms: bool,
     ) -> Type<'db> {
         match subject_ty {
-            Type::TypeAlias(alias) => self.filter_class_pattern_subject_type(
-                class,
-                class_ty,
-                alias.value_type(self.db),
-                true,
-            ),
+            Type::TypeAlias(alias) => {
+                self.filter_class_pattern_subject_type(class, class_ty, alias.value_type(self.db))
+            }
             Type::Union(union) => union.map(self.db, |element| {
-                self.filter_class_pattern_subject_type(class, class_ty, *element, true)
+                self.filter_class_pattern_subject_type(class, class_ty, *element)
             }),
             Type::Intersection(intersection) if intersection.positive(self.db).is_empty() => {
                 self.intersect_types(subject_ty, class_ty)
             }
-            Type::Intersection(intersection) => {
-                let filter_nominal_arms = filter_nominal_arms
-                    || intersection
-                        .positive(self.db)
-                        .iter()
-                        .any(|positive| matches!(positive, Type::TypeAlias(_) | Type::Union(_)));
-                intersection.map_positive(self.db, |positive| {
-                    self.filter_class_pattern_subject_type(
-                        class,
-                        class_ty,
-                        *positive,
-                        filter_nominal_arms,
-                    )
-                })
-            }
-            Type::NominalInstance(instance) if filter_nominal_arms => {
+            Type::Intersection(intersection) => intersection.map_positive(self.db, |positive| {
+                self.filter_class_pattern_subject_type(class, class_ty, *positive)
+            }),
+            Type::NominalInstance(instance) => {
                 let Some(class) = class else {
                     return self.intersect_types(subject_ty, class_ty);
                 };
@@ -1522,7 +1506,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                     self.intersect_types(subject_ty, class_ty)
                 }
             }
-            Type::TypedDict(_) if filter_nominal_arms => {
+            Type::TypedDict(_) => {
                 if class.is_some_and(|class| {
                     KnownClass::Dict.is_subclass_of(self.db, ClassType::NonGeneric(class))
                 }) {
@@ -1573,12 +1557,8 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         context: &ClassPatternContext<'db>,
         subject_ty: Type<'db>,
     ) -> Option<(Type<'db>, Vec<Type<'db>>)> {
-        let narrowed_subject_ty = self.filter_class_pattern_subject_type(
-            context.class,
-            context.class_ty,
-            subject_ty,
-            true,
-        );
+        let narrowed_subject_ty =
+            self.filter_class_pattern_subject_type(context.class, context.class_ty, subject_ty);
         if narrowed_subject_ty.is_never() {
             return None;
         }
@@ -1628,7 +1608,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             .take(argument_count)
             .collect();
         let matched_subject_ty =
-            self.match_pattern_subject_type_from_arms(subject_ty, true, |builder, subject_ty| {
+            self.match_pattern_subject_type_from_arms(subject_ty, |builder, subject_ty| {
                 let (narrowed_subject_ty, argument_types) =
                     builder.matching_class_pattern_arm(kind, &context, subject_ty)?;
                 for (argument_builder, argument_ty) in builders.iter_mut().zip(argument_types) {
@@ -1728,7 +1708,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             .collect();
         let mut rest_builder = UnionBuilder::new(self.db);
         let matched_subject_ty =
-            self.match_pattern_subject_type_from_arms(subject_ty, true, |builder, subject_ty| {
+            self.match_pattern_subject_type_from_arms(subject_ty, |builder, subject_ty| {
                 let (narrowed_subject_ty, value_types) =
                     builder.matching_mapping_pattern_arm(kind, &key_types, subject_ty)?;
                 for (value_builder, value_ty) in builders.iter_mut().zip(value_types) {
@@ -1870,7 +1850,6 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     fn match_pattern_subject_type_from_arms(
         &mut self,
         subject_ty: Type<'db>,
-        preserve_equivalent_type: bool,
         mut match_arm: impl FnMut(&mut Self, Type<'db>) -> Option<Type<'db>>,
     ) -> Type<'db> {
         let subject_arms = self.match_pattern_subject_arms(subject_ty);
