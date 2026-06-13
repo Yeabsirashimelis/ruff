@@ -92,10 +92,7 @@ fn class_pattern_is_exhaustive(
         return false;
     };
     let subject_class_literal = subject_class.class_literal(db);
-    if subject_class_literal != class
-        && !subject_class_literal.is_final(db)
-        && !class.is_protocol(db)
-    {
+    if subject_class_literal != class && !subject_class_literal.is_final(db) {
         return false;
     }
 
