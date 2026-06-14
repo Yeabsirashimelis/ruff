@@ -1544,7 +1544,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         }
     }
 
-    /// Narrow a class-pattern binding while keeping the original type arguments and aliases.
+    /// Narrow a successful class-pattern result while keeping type arguments and aliases.
     ///
     /// For example, `children` keeps the recursive element type from `Node` instead of becoming a
     /// broad `list` type:
