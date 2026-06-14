@@ -220,10 +220,10 @@ def mutable_global_rhs(x: str | None, unavailable: set[str | None]) -> None:
 
 ## Membership and equality
 
-When ty can prove that one member of a union cannot compare equal to any item in the container, it
-removes that member inside the `if` body. A `TypedDict` cannot compare equal to a string, and a
-final class with the default identity-based equality cannot compare equal to an integer. We retain
-types such as `int` and classes with custom equality when they might still match an item.
+If one member of a union cannot compare equal to any item in the container, we can remove that
+member inside the `if` body. A `TypedDict` cannot compare equal to a string, and a final class with
+the default identity-based equality cannot compare equal to an integer. We retain types such as
+`int` and classes with custom equality when they might still match an item.
 
 ```py
 from typing import Literal, TypedDict, final
@@ -263,7 +263,7 @@ def empty_tuple(x: Payload | Literal["missing"], values: tuple[()]):
 ## Custom containment methods
 
 Python uses `__contains__` when a class defines it. The method can return `True` for values that the
-class would never produce during iteration, but ty currently narrows membership tests from the
+class would never produce during iteration, but membership tests are currently narrowed from the
 iterable element type. The result below is therefore too narrow and documents a known limitation:
 
 ```py
