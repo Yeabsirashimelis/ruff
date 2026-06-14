@@ -1254,9 +1254,9 @@ def test_match_typed_dict_or_pattern_filters_union_members(
 
 ## Narrowing the match subject
 
-The successful type of a class or mapping pattern also narrows the original match subject, even when
-the pattern does not bind an alias for the whole value. Nested patterns can remove members of a
-union, and an `or` pattern combines the members matched by its alternatives.
+When a class or mapping pattern succeeds, it can narrow the original match subject even if the
+pattern does not bind a name for the whole value. Nested patterns can remove union members, and an
+`or` pattern combines the possibilities from its alternatives.
 
 ```py
 from typing import Any, Generic, Literal, TypeVar, final
@@ -1363,8 +1363,8 @@ def test_match_mapping_does_not_narrow_tuple_display_element(
 ) -> None:
     match (value,):
         case ({"tag": "int"},):
-            # TODO: This should reveal `IntPayload`. Recursive mapping narrowing is not yet
-            # propagated back to expressions used to construct tuple display subjects.
+            # TODO: This should reveal `IntPayload`. Mapping patterns do not yet narrow values used
+            # inside tuple display subjects.
             reveal_type(value)  # revealed: IntPayload | StrPayload
 
 def test_match_mapping_does_not_narrow_dictionary_display_element(
@@ -1372,8 +1372,8 @@ def test_match_mapping_does_not_narrow_dictionary_display_element(
 ) -> None:
     match {"payload": value}:
         case {"payload": {"tag": "int"}}:
-            # TODO: This should reveal `IntPayload`. Dictionary display subjects do not yet
-            # retain the correspondence between their values and mapping patterns.
+            # TODO: This should reveal `IntPayload`. Mapping patterns do not yet narrow values used
+            # inside dictionary display subjects.
             reveal_type(value)  # revealed: IntPayload | StrPayload
 ```
 
