@@ -675,8 +675,8 @@ def test_match_class_alias_rejects_disjoint_final_class(value: FinalA) -> None:
 
 ## Class patterns for runtime dictionary values
 
-A `TypedDict` is not a nominal subtype of `dict`, but its values are dictionaries at runtime. A
-`TypedDict` can therefore match `dict`, the mapping abstract base classes, and runtime-checkable
+A `TypedDict` type does not inherit from `dict`, but its values are dictionaries at runtime. Those
+values can therefore match `dict`, the mapping abstract base classes, and runtime-checkable
 protocols implemented by dictionaries.
 
 ```py
@@ -755,8 +755,8 @@ def test_incompatible_declared_class_capture(value: PatternBox[int]) -> None:
 
 ## Generic subclass captures
 
-When a value is typed as a generic base class and the pattern matches one of its subclasses, ty does
-not yet preserve the base class's type argument on the subclass. This is tracked by
+When a value is typed as a generic base class and the pattern matches one of its subclasses, the
+base class's type argument is not yet preserved on the subclass. This is tracked by
 [astral-sh/ty#1824](https://github.com/astral-sh/ty/issues/1824) and
 [astral-sh/ty#3676](https://github.com/astral-sh/ty/issues/3676).
 
@@ -904,7 +904,7 @@ For Python's built-in scalar and container classes, the single positional patter
 entire subject instead of reading an attribute:
 
 ```py
-def test_match_builtin_match_self(
+def builtin_positional_patterns_capture_subject(
     value: list[int] | dict[str, int] | int,
 ) -> None:
     match value:
