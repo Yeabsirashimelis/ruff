@@ -936,6 +936,21 @@ def test_match_class_capture_preserves_possible_multiple_inheritance(
         case OverlapCaptureB(member=item) as whole:
             reveal_type(item)  # revealed: int
             reveal_type(whole)  # revealed: OverlapCaptureA & OverlapCaptureB
+
+class OverlapMemberA:
+    member: int
+
+class OverlapMemberB:
+    member: str
+
+class OverlapMemberC(OverlapMemberA, OverlapMemberB): ...
+
+def test_match_class_capture_combines_overlapping_member_types(
+    value: OverlapMemberA,
+) -> None:
+    match value:
+        case OverlapMemberB(member=item):
+            reveal_type(item)  # revealed: int | str
 ```
 
 ## Class pattern captures from `Any` and `Unknown`

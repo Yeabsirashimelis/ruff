@@ -1487,9 +1487,24 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             .is_some_and(|class| class.is_final(self.db));
         let member_type = |name: &Name| {
             let place = subject_ty.member(self.db, name.as_str()).place;
-            place
-                .ignore_possibly_undefined()
-                .or_else(|| (!subject_is_final).then_some(Type::unknown()))
+            let mut member_ty = place.ignore_possibly_undefined();
+            if member_ty.is_some_and(|ty| ty.is_never())
+                && let Type::Intersection(intersection) = subject_ty
+            {
+                let overlapping_member_ty = UnionType::from_elements(
+                    self.db,
+                    intersection.positive(self.db).iter().filter_map(|positive| {
+                        positive
+                            .member(self.db, name.as_str())
+                            .place
+                            .ignore_possibly_undefined()
+                    }),
+                );
+                if !overlapping_member_ty.is_never() {
+                    member_ty = Some(overlapping_member_ty);
+                }
+            }
+            member_ty.or_else(|| (!subject_is_final).then_some(Type::unknown()))
         };
 
         context
