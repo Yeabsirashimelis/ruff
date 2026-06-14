@@ -1256,7 +1256,8 @@ def test_match_typed_dict_or_pattern_filters_union_members(
 
 When a class or mapping pattern succeeds, it can narrow the original match subject even if the
 pattern does not bind a name for the whole value. Nested patterns can remove union members, and an
-`or` pattern combines the possibilities from its alternatives.
+`or` pattern combines the possibilities from its alternatives. When only some constraints of a type
+variable can match, the narrowed subject keeps the original type variable in an intersection.
 
 ```py
 from typing import Any, Generic, Literal, TypeVar, final
@@ -1303,6 +1304,18 @@ def test_match_class_narrows_subject(
     match value:
         case TaggedPayload("int", _):
             reveal_type(value)  # revealed: TaggedPayload[Literal["int"], int]
+
+ConstrainedPayloadT = TypeVar(
+    "ConstrainedPayloadT",
+    TaggedPayload[Literal["int"], int],
+    TaggedPayload[Literal["str"], str],
+)
+
+def test_match_class_narrows_constrained_typevar_subject(value: ConstrainedPayloadT) -> None:
+    match value:
+        case TaggedPayload("int", _):
+            # revealed: ConstrainedPayloadT@test_match_class_narrows_constrained_typevar_subject & TaggedPayload[Literal["int"], int]
+            reveal_type(value)
 
 def test_match_class_or_pattern_narrows_subject(
     value: TaggedPayload[Literal["int"], int] | TaggedPayload[Literal["str"], str] | TaggedPayload[Literal["bool"], bool],
