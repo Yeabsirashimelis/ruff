@@ -289,7 +289,7 @@ def custom_contains_literal_domain(
 ):
     if x in values:
         # TODO: `x` can still be `Literal["present"]` because `values.__contains__` always
-        # returns `True`. ty still narrows a finite set of literals using the type produced by
+        # returns `True`. A finite set of literals is still narrowed using the type produced by
         # iteration.
         reveal_type(x)  # revealed: Literal["missing"]
 ```
@@ -397,7 +397,7 @@ def bytearray_contains_index(
 
 ## Custom containment methods on tuple subclasses
 
-ty currently treats tuple subclasses like tuples when narrowing membership tests, even if the
+Tuple subclasses are currently treated like tuples when narrowing membership tests, even if the
 subclass overrides `__contains__`. The result below is therefore too narrow and documents a known
 limitation:
 
