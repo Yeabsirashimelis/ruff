@@ -2068,22 +2068,15 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             (&grouped_arms)
                 .into_iter()
                 .map(|(original_subject_ty, arms)| {
-                    let filtering_types = original_subject_ty
-                        .flatten_typevars(self.db)
-                        .resolve_type_alias(self.db);
                     let matched_types = UnionType::from_elements(
                         self.db,
                         arms.filter_map(|(_, subject_ty)| match_arm(self, subject_ty)),
                     );
-                    if matched_types.is_equivalent_to(self.db, filtering_types)
-                        && (preserve_equivalent_type || original_subject_ty.has_typevar(self.db))
-                    {
-                        original_subject_ty
-                    } else if original_subject_ty.has_typevar(self.db) {
-                        self.intersect_types(original_subject_ty, matched_types)
-                    } else {
-                        matched_types
-                    }
+                    self.matched_subject_type_for_original(
+                        original_subject_ty,
+                        matched_types,
+                        preserve_equivalent_type,
+                    )
                 }),
         )
     }
@@ -2111,9 +2104,10 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 }
             }
 
+            let matched_types = matched_types.build();
             matched_subject_types.add_in_place(self.matched_subject_type_for_original(
                 original_subject_ty,
-                matched_types.build(),
+                matched_types,
                 preserve_equivalent_type,
             ));
         }
@@ -2124,6 +2118,10 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         }
     }
 
+    /// Restore the original subject type after checking its expanded matching arms.
+    ///
+    /// Preserve a type variable when all of its possible values match. When only some values
+    /// match, retain the type variable as the positive side of an intersection.
     fn matched_subject_type_for_original(
         &self,
         original_subject_ty: Type<'db>,
