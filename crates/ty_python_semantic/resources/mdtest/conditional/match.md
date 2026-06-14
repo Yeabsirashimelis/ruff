@@ -580,7 +580,7 @@ def value_alias(target: Literal[1, 2]):
             reveal_type(item)  # revealed: Literal[1]
 ```
 
-### Irrefutable bindings
+### Bindings that always match
 
 A wildcard alias and a capture pattern both match every subject, so they bind the subject's full
 type.

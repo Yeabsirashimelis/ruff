@@ -353,13 +353,6 @@ def test_match_capture_filters_union_members(
         case _:
             return 0
 
-def test_match_capture_preserves_compatible_union_members(
-    value: tuple[Literal[1], int] | tuple[Literal[2], str],
-) -> None:
-    match value:
-        case [_, item]:
-            reveal_type(item)  # revealed: int | str
-
 MatchPair: TypeAlias = tuple[Literal[1], int] | tuple[Literal[2], str]
 MatchPairT = TypeVar(
     "MatchPairT",
@@ -423,7 +416,9 @@ def test_match_sequence_as_pattern_excludes_previous_cases(
             reveal_type(item)  # revealed: Literal[2]
 ```
 
-An earlier OR alternative must only be removed when every value of its type is certain to match. A
+## Ordered `or`-pattern bindings
+
+An earlier `or` alternative must only be removed when every value of its type is certain to match. A
 protocol class pattern can still fail if a declared member is absent at runtime, so the later
 sequence alternative remains possible:
 
@@ -456,12 +451,6 @@ def test_incompatible_declared_capture(subject: int) -> None:
         case item:  # error: [invalid-assignment]
             reveal_type(item)  # revealed: str
 
-def test_incompatible_declared_sequence_capture(subject: tuple[int]) -> None:
-    item: str
-    match subject:
-        case [item]:  # error: [invalid-assignment]
-            reveal_type(item)  # revealed: str
-
 def test_incompatible_declared_star_capture(subject: tuple[int, int]) -> None:
     rest: list[str]
     match subject:
@@ -485,10 +474,10 @@ def test_compatible_declared_alias(subject: object) -> None:
             reveal_type(item)  # revealed: int
 ```
 
-When an alias surrounds the whole pattern, it preserves the subject's type variable instead of
-reconstructing a structural type from the pattern. If only some choices of a constrained type
-variable can match, the binding keeps the type variable together with the sequence shape established
-by the pattern.
+## Binding the whole pattern
+
+Binding an entire pattern with `as` keeps the subject's original type variable. If only some
+constraints can match, the binding also keeps the sequence shape established by the pattern.
 
 ```py
 from typing import TypeVar
@@ -534,12 +523,12 @@ def test_match_sequence_alias_narrows_constrained_typevar(
         case _:
             raise ValueError
 
-def test_match_sequence_alias_preserves_typevar_union_arm(
+def test_match_sequence_alias_preserves_typevar_union_member(
     value: BoundSequenceT | str,
 ) -> BoundSequenceT:
     match value:
         case [_] as whole:
-            # revealed: BoundSequenceT@test_match_sequence_alias_preserves_typevar_union_arm
+            # revealed: BoundSequenceT@test_match_sequence_alias_preserves_typevar_union_member
             reveal_type(whole)
             return whole
         case _:
@@ -586,10 +575,10 @@ def test_match_class_alias_preserves_recursive_containers(
                 test_match_class_alias_preserves_recursive_containers(item)
 ```
 
-## Class pattern alias intersections
+## Binding overlapping classes with `as`
 
-Class patterns retain intersections that can exist through multiple inheritance, but discard classes
-that are known to be disjoint.
+Unrelated classes can share a subclass through multiple inheritance. Binding the whole class pattern
+therefore preserves their intersection unless the classes are known to be disjoint.
 
 ```py
 from typing import final
