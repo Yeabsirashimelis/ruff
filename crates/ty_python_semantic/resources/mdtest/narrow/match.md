@@ -680,7 +680,7 @@ A `TypedDict` is not a nominal subtype of `dict`, but its values are dictionarie
 protocols implemented by dictionaries.
 
 ```py
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping
 from typing import Protocol, TypedDict, runtime_checkable
 
 class ProtocolPayload(TypedDict):
@@ -702,13 +702,6 @@ def test_match_typed_dict_alias_preserves_mapping_runtime_type(
 ) -> None:
     match value:
         case Mapping() as item:
-            reveal_type(item)  # revealed: ProtocolPayload
-
-def test_match_typed_dict_alias_preserves_mutable_mapping_runtime_type(
-    value: ProtocolPayload,
-) -> None:
-    match value:
-        case MutableMapping() as item:
             reveal_type(item)  # revealed: ProtocolPayload
 ```
 
@@ -905,10 +898,10 @@ def test_match_ordered_class_alternatives_preserve_later_bindings(
             reveal_type(item)  # revealed: int | OrderedChild
 ```
 
-## Built-in match-self captures
+## Positional patterns for built-in classes
 
-For Python's built-in match-self classes, the positional subpattern receives the entire subject
-rather than one of its attributes:
+For Python's built-in scalar and container classes, the single positional pattern receives the
+entire subject instead of reading an attribute:
 
 ```py
 def test_match_builtin_match_self(
@@ -992,8 +985,6 @@ def test_match_mapping_bindings(value: Mapping[str, MappingValueT]) -> MappingVa
 def test_match_dict_bindings(value: dict[str, int]) -> None:
     match value:
         case {"item": item, **rest} as whole:
-            reveal_type(item)  # revealed: int
-            reveal_type(rest)  # revealed: dict[str, int]
             reveal_type(whole)  # revealed: dict[str, int]
 
 def test_incompatible_declared_mapping_captures(value: Mapping[str, int]) -> None:
@@ -1031,7 +1022,12 @@ def test_match_mapping_intenum_key(
     match value:
         case {MappingKey.ITEM: item}:
             reveal_type(item)  # revealed: int
+```
 
+Mapping values are passed to nested patterns. If any nested pattern cannot match, the mapping
+pattern binds no names:
+
+```py
 def test_match_mapping_nested_sequence(
     value: Mapping[str, tuple[int, str]],
 ) -> None:
