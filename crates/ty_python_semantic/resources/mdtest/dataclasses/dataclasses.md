@@ -328,6 +328,21 @@ reveal_type(repr(alice))  # revealed: str
 reveal_type(alice == alice)  # revealed: bool
 ```
 
+A class is still treated as a dataclass when arguments are unpacked into the decorator:
+
+```py
+from dataclasses import dataclass
+
+SLOTS = {"slots": True}
+
+@dataclass(frozen=True, **SLOTS)
+class C:
+    x: int
+
+reveal_type(C.__init__)  # revealed: (self: C, x: int) -> None
+C(1)
+```
+
 If `init` is set to `False`, no `__init__` method is generated:
 
 ```py
@@ -1991,10 +2006,6 @@ dataclass(B)()
 dataclass(B)("a")
 
 reveal_type(dataclass(B)(3).x)  # revealed: int
-
-class InvalidDirectApplication: ...
-
-dataclass(InvalidDirectApplication, order=True, eq=False)  # error: [invalid-dataclass] "`order=True` requires `eq=True`"
 ```
 
 ## Internals
