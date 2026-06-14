@@ -183,7 +183,8 @@ impl<'db> SequencePatternPredicateKind<'db> {
     }
 }
 
-/// Pattern kinds for which we support type narrowing and/or static reachability analysis.
+/// Pattern structure used for type narrowing, static reachability, and inferring the types of
+/// names bound by a successful match.
 #[derive(Debug, Clone, Hash, PartialEq, salsa::Update, get_size2::GetSize)]
 pub enum PatternPredicateKind<'db> {
     Singleton(Singleton),
