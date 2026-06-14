@@ -1252,72 +1252,13 @@ def test_match_typed_dict_or_pattern_filters_union_members(
             reveal_type(whole)  # revealed: ClosedIntPayload | ClosedStrPayload
 ```
 
-## Sequence exhaustiveness
-
-Sequence patterns also contribute to negative narrowing and exhaustiveness. Exact tuple shapes can
-make a match exhaustive.
-
-```py
-from typing_extensions import assert_never
-
-def test_match_exact_tuple_sequence(subj: tuple[int | str, int | str]) -> None:
-    match subj:
-        case x, str():
-            # TODO: This should simplify to `tuple[int | str, str]`.
-            # revealed: tuple[int | str, int | str] & <Protocol with members '__getitem__', '__len__'>
-            reveal_type(subj)
-            reveal_type(subj[0])  # revealed: int | str
-            reveal_type(subj[1])  # revealed: str
-            first, second = subj
-            reveal_type(first)  # revealed: int | str
-            # TODO: This should reveal `str`.
-            reveal_type(second)  # revealed: int | str
-        case y:
-            # TODO: This should simplify to `tuple[int | str, int]`.
-            # revealed: tuple[int | str, int | str] & ~<Protocol with members '__getitem__', '__len__'>
-            reveal_type(subj)
-            reveal_type(subj[0])  # revealed: int | str
-            # TODO: This should reveal `int` once we simplify the negative
-            # intersection above.
-            reveal_type(subj[1])  # revealed: int | str
-
-def test_match_exact_tuple_sequence_is_exhaustive(value: int | tuple[int, int]) -> int:
-    match value:
-        case int(value):
-            return value
-        case (left, right):
-            return left + right
-        case _:
-            assert_never(value)
-
-def test_match_exact_tuple_element_union_is_exhaustive(x: tuple[int | str]) -> int:  # error: [invalid-return-type]
-    match x:
-        case [int()]:
-            return 42
-        case [str()]:
-            return 42
-        case _:
-            # TODO: The previous cases are exhaustive, so this should simplify
-            # to `tuple[Never]`, and therefore `Never`.
-            # revealed: tuple[int | str] & ~<Protocol with members '__getitem__', '__len__'> & ~<Protocol with members '__getitem__', '__len__'>
-            reveal_type(x)
-
-def test_match_exact_mutable_sequence_negative(value: list[int]) -> None:
-    match value:
-        case [int()]:
-            pass
-        case _:
-            # revealed: list[int] & ~<Protocol with members '__getitem__', '__len__'>
-            reveal_type(value)
-```
-
-## Built-in match-self patterns
+## Exhaustive positional patterns for built-in classes
 
 Python defines a fixed set of built-in classes whose single positional subpattern receives the
 entire subject. This example checks every such class, including nested sequence and `or` patterns:
 
 ```py
-def builtin_match_self_patterns_are_exhaustive(
+def builtin_positional_patterns_are_exhaustive(
     value: tuple[
         bool,
         bytearray,
@@ -1371,7 +1312,7 @@ def typed_dict_mapping_pattern_is_exhaustive(value: Movie) -> int:
         case Mapping():
             return 1
 
-def typed_dict_match_self_pattern_is_exhaustive(value: Movie) -> int:
+def typed_dict_positional_dict_pattern_is_exhaustive(value: Movie) -> int:
     match value:
         case dict(_):
             return 1
@@ -1394,32 +1335,32 @@ def named_tuple_positional_pattern_is_exhaustive(value: NamedPoint) -> int:
             return 1
 ```
 
-## Built-in match-self subclasses
+## Positional patterns for built-in subclasses
 
-Match-self behavior is inherited by subclasses. The positional subpattern still needs to match the
+Subclasses inherit this positional behavior. The positional subpattern still needs to match the
 entire value, so a literal subpattern is not exhaustive:
 
 ```py
 class MyInt(int): ...
 
-def builtin_match_self_subclass_is_exhaustive(value: MyInt) -> int:
+def builtin_subclass_positional_pattern_is_exhaustive(value: MyInt) -> int:
     match value:
         case MyInt(_):
             return 1
 
-def builtin_match_self_is_exhaustive_for_subclass(value: MyInt) -> int:
+def builtin_base_positional_pattern_is_exhaustive_for_subclass(value: MyInt) -> int:
     match value:
         case int(_):
             return 1
 
-def nested_builtin_match_self_is_exhaustive_for_subclass(
+def nested_builtin_positional_pattern_is_exhaustive_for_subclass(
     value: tuple[MyInt],
 ) -> int:
     match value:
         case [int(_)]:
             return 1
 
-def builtin_match_self_literal_is_not_exhaustive(
+def builtin_positional_literal_is_not_exhaustive(
     value: MyInt,
     # error: [invalid-return-type]
 ) -> int:
@@ -1481,7 +1422,7 @@ class KnownAttributes:
     x: int = 0
     y: int = 0
 
-def direct_known_positional_attributes_are_exhaustive(value: KnownAttributes) -> int:
+def fixed_match_args_are_exhaustive(value: KnownAttributes) -> int:
     match value:
         case KnownAttributes(_, _):
             return 1
@@ -1527,9 +1468,8 @@ def possibly_bound_match_args_is_not_exhaustive(
 
 ## Properties and declared attributes
 
-Exhaustiveness follows ty's static member model. A property or attribute declaration counts as
-present even though descriptor access can raise `AttributeError` or an annotated attribute can be
-absent at runtime:
+Properties and declared attributes count as present when checking exhaustiveness, even though
+descriptor access can raise `AttributeError` and an annotated attribute can be absent at runtime:
 
 ```py
 from typing import Literal
@@ -1628,9 +1568,9 @@ def argumentless_runtime_protocol_pattern_is_not_exhaustive(
 class FinalDeclaredRuntimeProtocolImplementer:
     x: int
 
-# TODO: This is currently considered exhaustive because ty treats the declared `x` member as
-# present on a final class. At runtime, however, `x` may never have been initialized, so the
-# protocol check can fail.
+# TODO: This is currently considered exhaustive because the declared `x` member counts as present
+# on a final class. At runtime, however, `x` may never have been initialized, so the protocol check
+# can fail.
 def final_declared_runtime_protocol_implementer(
     value: FinalDeclaredRuntimeProtocolImplementer,
 ) -> int:
@@ -1697,7 +1637,7 @@ class PlainBase: ...
 @final
 class IntPlainChild(int, PlainBase): ...
 
-def match_self_comes_from_pattern_class(
+def builtin_positional_behavior_comes_from_pattern_class(
     value: IntPlainChild,
     # error: [invalid-return-type]
 ) -> int:
@@ -1762,6 +1702,65 @@ def keyword_class_pattern_in_sequence_preserves_fallback(
             pass
         case _:
             reveal_type(value)  # revealed: tuple[MissingAttributes]
+```
+
+## Sequence exhaustiveness
+
+Sequence patterns also contribute to negative narrowing and exhaustiveness. Exact tuple shapes can
+make a match exhaustive.
+
+```py
+from typing_extensions import assert_never
+
+def test_match_exact_tuple_sequence(subj: tuple[int | str, int | str]) -> None:
+    match subj:
+        case x, str():
+            # TODO: This should simplify to `tuple[int | str, str]`.
+            # revealed: tuple[int | str, int | str] & <Protocol with members '__getitem__', '__len__'>
+            reveal_type(subj)
+            reveal_type(subj[0])  # revealed: int | str
+            reveal_type(subj[1])  # revealed: str
+            first, second = subj
+            reveal_type(first)  # revealed: int | str
+            # TODO: This should reveal `str`.
+            reveal_type(second)  # revealed: int | str
+        case y:
+            # TODO: This should simplify to `tuple[int | str, int]`.
+            # revealed: tuple[int | str, int | str] & ~<Protocol with members '__getitem__', '__len__'>
+            reveal_type(subj)
+            reveal_type(subj[0])  # revealed: int | str
+            # TODO: This should reveal `int` once we simplify the negative
+            # intersection above.
+            reveal_type(subj[1])  # revealed: int | str
+
+def test_match_exact_tuple_sequence_is_exhaustive(value: int | tuple[int, int]) -> int:
+    match value:
+        case int(value):
+            return value
+        case (left, right):
+            return left + right
+        case _:
+            assert_never(value)
+
+def test_match_exact_tuple_element_union_is_exhaustive(x: tuple[int | str]) -> int:  # error: [invalid-return-type]
+    match x:
+        case [int()]:
+            return 42
+        case [str()]:
+            return 42
+        case _:
+            # TODO: The previous cases are exhaustive, so this should simplify
+            # to `tuple[Never]`, and therefore `Never`.
+            # revealed: tuple[int | str] & ~<Protocol with members '__getitem__', '__len__'> & ~<Protocol with members '__getitem__', '__len__'>
+            reveal_type(x)
+
+def test_match_exact_mutable_sequence_negative(value: list[int]) -> None:
+    match value:
+        case [int()]:
+            pass
+        case _:
+            # revealed: list[int] & ~<Protocol with members '__getitem__', '__len__'>
+            reveal_type(value)
 ```
 
 ## Nested sequence patterns
