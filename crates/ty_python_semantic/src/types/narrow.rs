@@ -1509,7 +1509,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn analyze_successful_class_pattern(
-        &mut self,
+        &self,
         kind: &ClassPatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
@@ -1604,7 +1604,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn analyze_successful_mapping_pattern(
-        &mut self,
+        &self,
         kind: &MappingPatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
@@ -1775,37 +1775,6 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         let mut unpacker = TupleUnpacker::new(self.db, target_len);
         unpacker.unpack_tuple(tuple.as_ref()).ok()?;
         Some((narrowed_subject_ty, unpacker.into_types().collect()))
-    }
-
-    fn match_pattern_subject_type_from_arms(
-        &mut self,
-        subject_ty: Type<'db>,
-        preserve_equivalent_type: bool,
-        mut match_arm: impl FnMut(&mut Self, Type<'db>) -> Option<Type<'db>>,
-    ) -> Type<'db> {
-        let subject_arms = self.match_pattern_subject_arms(subject_ty);
-        let grouped_arms = subject_arms
-            .into_iter()
-            .chunk_by(|(original_subject_ty, _)| *original_subject_ty);
-
-        UnionType::from_elements(
-            self.db,
-            (&grouped_arms)
-                .into_iter()
-                .map(|(original_subject_ty, arms)| {
-                    let matched_types = UnionType::from_elements(
-                        self.db,
-                        arms.filter_map(|(_, filtering_subject_ty)| {
-                            match_arm(self, filtering_subject_ty)
-                        }),
-                    );
-                    self.matched_subject_type_for_original(
-                        original_subject_ty,
-                        matched_types,
-                        preserve_equivalent_type,
-                    )
-                }),
-        )
     }
 
     fn analyze_pattern_subject_arms(
