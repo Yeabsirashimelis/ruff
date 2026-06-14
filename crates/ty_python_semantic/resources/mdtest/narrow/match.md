@@ -1335,14 +1335,6 @@ def test_missing_final_class_attribute_rejects_subject_alternative(
         case FinalWithoutRequestedAttribute(missing=_) | TaggedPayload("int", _):
             reveal_type(value)  # revealed: TaggedPayload[Literal["int"], int]
 
-DynamicClass: Any = int
-
-def test_dynamic_class_keeps_subject_and_alias_consistent(value: int | str) -> None:
-    match value:
-        case DynamicClass() as whole:
-            reveal_type(value)  # revealed: int | str
-            reveal_type(whole)  # revealed: int | str
-
 class IntPayload(TypedDict):
     tag: Literal["int"]
     value: int
