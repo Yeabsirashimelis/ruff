@@ -381,6 +381,19 @@ struct PatternSuccessAnalyzer<'db> {
     scope: ScopeId<'db>,
 }
 
+/// Infer the types of all names bound when `pattern` succeeds.
+///
+/// The subject starts with its inferred type after removing values definitely matched by earlier
+/// unguarded cases. The analysis then checks the complete pattern before recording any bindings:
+///
+/// ```python
+/// def f(value: int | str) -> None:
+///     match value:
+///         case int():
+///             pass
+///         case item:
+///             reveal_type(item)  # str
+/// ```
 #[salsa::tracked(
     returns(ref),
     cycle_initial=|_, id, _| PatternSuccessTypes::cycle_initial(Type::divergent(id)),
