@@ -289,7 +289,8 @@ def custom_contains_literal_domain(
 ):
     if x in values:
         # TODO: `x` can still be `Literal["present"]` because `values.__contains__` always
-        # returns `True`. The pre-existing finite-domain narrowing still uses the iterator type.
+        # returns `True`. ty still narrows a finite set of literals using the type produced by
+        # iteration.
         reveal_type(x)  # revealed: Literal["missing"]
 ```
 
