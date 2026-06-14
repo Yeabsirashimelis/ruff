@@ -1261,6 +1261,7 @@ union, and an `or` pattern combines the members matched by its alternatives.
 ```py
 from typing import Any, Generic, Literal, TypeVar
 from typing_extensions import TypedDict
+from ty_extensions import Unknown
 
 TagT = TypeVar("TagT")
 PayloadT = TypeVar("PayloadT")
@@ -1269,6 +1270,20 @@ class TaggedPayload(Generic[TagT, PayloadT]):
     __match_args__ = ("tag", "payload")
     tag: TagT
     payload: PayloadT
+
+class GradualSubjectBox: ...
+
+def test_match_class_narrows_gradual_subjects(
+    any_value: Any,
+    unknown_value: Unknown,
+) -> None:
+    match any_value:
+        case GradualSubjectBox():
+            reveal_type(any_value)  # revealed: Any & GradualSubjectBox
+
+    match unknown_value:
+        case GradualSubjectBox():
+            reveal_type(unknown_value)  # revealed: Unknown & GradualSubjectBox
 
 def test_match_class_narrows_subject(
     value: TaggedPayload[Literal["int"], int] | TaggedPayload[Literal["str"], str],
