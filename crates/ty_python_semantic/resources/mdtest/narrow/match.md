@@ -1016,13 +1016,9 @@ class CustomGet(Mapping[str, int | str]):
 
     @overload
     def get(self, key: object) -> int | str | None: ...
-
     @overload
     def get(self, key: object, default: Default) -> int | str | Default: ...
-
-    def get(
-        self, key: object, default: Default | None = None
-    ) -> int | str | Default | None:
+    def get(self, key: object, default: Default | None = None) -> int | str | Default | None:
         if key == "item":
             return "custom value"
         return default

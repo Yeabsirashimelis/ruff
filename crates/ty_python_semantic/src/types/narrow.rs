@@ -1494,12 +1494,15 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             {
                 let overlapping_member_ty = UnionType::from_elements(
                     self.db,
-                    intersection.positive(self.db).iter().filter_map(|positive| {
-                        positive
-                            .member(self.db, name.as_str())
-                            .place
-                            .ignore_possibly_undefined()
-                    }),
+                    intersection
+                        .positive(self.db)
+                        .iter()
+                        .filter_map(|positive| {
+                            positive
+                                .member(self.db, name.as_str())
+                                .place
+                                .ignore_possibly_undefined()
+                        }),
                 );
                 if !overlapping_member_ty.is_never() {
                     member_ty = Some(overlapping_member_ty);
@@ -1614,8 +1617,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             return Some(typed_dict.value_type(self.db));
         }
 
-        let Some((_, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db)
-        else {
+        let Some((_, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db) else {
             return Some(Type::unknown());
         };
         let Some(get_method) = subject_ty
