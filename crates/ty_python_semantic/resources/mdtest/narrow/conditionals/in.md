@@ -360,14 +360,14 @@ def assignment_expression(value: Token | None) -> None:
         reveal_type(value)  # revealed: Never
 ```
 
-## Type variables with known containment
+## Wrapped types with known containment
 
-A type variable uses its upper bound or constraints. Broad union members can be removed when every
-possible container has known containment behavior:
+A type variable uses its upper bound or constraints, and a `NewType` uses its concrete base. Broad
+union members can be removed when every possible container has known containment behavior:
 
 ```py
 from collections.abc import Iterator
-from typing import Literal, TypeVar, final
+from typing import Literal, NewType, TypeVar, final
 
 @final
 class Token: ...
@@ -382,6 +382,15 @@ BoundFinalIterable = TypeVar("BoundFinalIterable", bound=FinalIterable)
 def bounded_final_iterable(
     value: Token | Literal[1],
     values: BoundFinalIterable,
+) -> None:
+    if value in values:
+        reveal_type(value)  # revealed: Literal[1]
+
+WrappedFinalIterable = NewType("WrappedFinalIterable", FinalIterable)
+
+def wrapped_final_iterable(
+    value: Token | Literal[1],
+    values: WrappedFinalIterable,
 ) -> None:
     if value in values:
         reveal_type(value)  # revealed: Literal[1]

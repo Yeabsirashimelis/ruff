@@ -103,6 +103,9 @@ fn can_filter_membership_union_arms<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool
                     }
                 })
         }
+        Type::NewTypeInstance(newtype) => {
+            can_filter_membership_union_arms(db, newtype.concrete_base_type(db))
+        }
         Type::LiteralValue(literal) => matches!(
             literal.kind(),
             LiteralValueTypeKind::String(_) | LiteralValueTypeKind::LiteralString
