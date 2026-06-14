@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 use std::ops::Range;
 
+mod rst;
+
+use super::super::formats::Formats;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DocstringSectionKind {
     Parameters,
@@ -468,8 +471,8 @@ mod section_tests {
     }
 }
 
-pub(super) fn render(raw: &str) -> Cow<'_, str> {
-    Docstring::parse(raw).render_markdown_source()
+pub(super) fn render<'a>(raw: &'a str, formats: &Formats) -> Cow<'a, str> {
+    Docstring::parse(raw, formats).render_markdown_source()
 }
 
 /// A tolerant, display-oriented parse of a normalized docstring.
@@ -479,8 +482,9 @@ pub(super) struct Docstring<'a> {
 }
 
 impl<'a> Docstring<'a> {
-    pub(super) fn parse(raw: &'a str) -> Self {
-        let blocks = parse_blocks(raw, Vec::new());
+    pub(super) fn parse(raw: &'a str, formats: &Formats) -> Self {
+        let blocks = parse_blocks(raw, formats);
+
         Self { raw, blocks }
     }
 
@@ -532,10 +536,6 @@ pub(super) struct SectionBlock {
 }
 
 impl SectionBlock {
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "used by follow-up structured docstring parsers")
-    )]
     pub(super) fn new(items: Vec<SectionItem>) -> Self {
         Self { items }
     }
@@ -586,10 +586,6 @@ pub(super) struct SectionItem {
 }
 
 impl SectionItem {
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "used by follow-up structured docstring parsers")
-    )]
     pub(super) fn new(
         kind: DocstringSectionKind,
         display_name: Option<&str>,
@@ -655,7 +651,8 @@ impl SectionItem {
     }
 }
 
-fn parse_blocks(raw: &str, mut sections: Vec<SectionCandidate>) -> Vec<Block<'_>> {
+fn parse_blocks<'a>(raw: &'a str, formats: &Formats) -> Vec<Block<'a>> {
+    let mut sections = rst::section_candidates(formats.rst());
     sections.sort_by_key(|section| section.range.start);
     let mut blocks = Vec::new();
     let mut rendered_through = 0;
@@ -705,11 +702,13 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::{Block, Docstring, DocstringSectionKind, SectionBlock, SectionItem};
+    use crate::docstring::formats::Formats;
 
     #[test]
     fn raw_docstring_renders_borrowed() {
         let docstring = "Summary.\n\nDetails.";
-        let parsed = Docstring::parse(docstring);
+        let formats = Formats::parse(docstring);
+        let parsed = Docstring::parse(docstring, &formats);
 
         assert_eq!(parsed.render_markdown_source(), docstring);
 
