@@ -211,8 +211,8 @@ def _(target: FooSub | str):
 
 ### Dynamic class
 
-Because the class expression is dynamically typed, ty cannot determine whether the pattern matches a
-given subject. Neither branch narrows the subject, and later cases remain reachable.
+A dynamically typed class expression may match any subject, so neither branch narrows the subject
+and later cases remain reachable.
 
 ```py
 from typing import Any

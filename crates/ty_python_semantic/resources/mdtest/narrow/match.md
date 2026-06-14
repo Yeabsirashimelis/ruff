@@ -1313,13 +1313,13 @@ def test_match_class_or_pattern_narrows_subject(
             reveal_type(value)
 
 @final
-class FinalWithoutMissingAttribute: ...
+class FinalWithoutRequestedAttribute: ...
 
 def test_missing_final_class_attribute_rejects_subject_alternative(
-    value: FinalWithoutMissingAttribute | TaggedPayload[Literal["int"], int],
+    value: FinalWithoutRequestedAttribute | TaggedPayload[Literal["int"], int],
 ) -> None:
     match value:
-        case FinalWithoutMissingAttribute(missing=_) | TaggedPayload("int", _):
+        case FinalWithoutRequestedAttribute(missing=_) | TaggedPayload("int", _):
             reveal_type(value)  # revealed: TaggedPayload[Literal["int"], int]
 
 DynamicClass: Any = int
@@ -1346,7 +1346,7 @@ def test_match_mapping_narrows_subject(value: IntPayload | StrPayload) -> None:
 class PayloadContainer:
     payload: IntPayload | StrPayload
 
-def test_match_narrows_attribute_subject(container: PayloadContainer) -> None:
+def mapping_pattern_narrows_attribute_subject(container: PayloadContainer) -> None:
     match container.payload:
         case {"tag": "int"}:
             reveal_type(container.payload)  # revealed: IntPayload
