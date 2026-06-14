@@ -308,8 +308,9 @@ fn sequence_pattern_is_exhaustive_for_subject(
 /// pattern can return a type wider than `subject_ty`; for example, `case Base()` returns `Base`
 /// even for a `Child` subject. Class patterns need the current subject type when the subject is a
 /// non-final subclass, while an exact or final class can make member extraction exhaustive.
-/// Type variables are expanded to their upper bound or constraints for this check. When every
-/// possible value matches, the result preserves the original type variable.
+/// Subject-dependent checks expand type variables to their upper bound or constraints. When every
+/// expanded value matches, the result preserves the original type variable. A subject-independent
+/// pattern can instead return its context-free definite-match type directly.
 /// This treats access to a definitely bound descriptor as successful even though the descriptor
 /// could raise at runtime. The same rule is propagated through nested sequence, `or`, and `as`
 /// patterns.
