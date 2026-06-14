@@ -90,6 +90,19 @@ fn can_filter_membership_union_arms<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool
             .elements(db)
             .iter()
             .all(|element| can_filter_membership_union_arms(db, *element)),
+        Type::TypeVar(type_var) => {
+            type_var
+                .typevar(db)
+                .bound_or_constraints(db)
+                .is_some_and(|bound_or_constraints| match bound_or_constraints {
+                    TypeVarBoundOrConstraints::UpperBound(bound) => {
+                        can_filter_membership_union_arms(db, bound)
+                    }
+                    TypeVarBoundOrConstraints::Constraints(constraints) => {
+                        can_filter_membership_union_arms(db, constraints.as_type(db))
+                    }
+                })
+        }
         Type::LiteralValue(literal) => matches!(
             literal.kind(),
             LiteralValueTypeKind::String(_) | LiteralValueTypeKind::LiteralString
@@ -1262,9 +1275,9 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                 .try_iterate(self.db)
                 .ok()?
                 .homogeneous_element_type(self.db);
-            let can_filter_broad_arms = rhs_expr
-                .is_some_and(has_exact_builtin_membership_semantics)
-                || can_filter_membership_union_arms(self.db, rhs_ty);
+            let can_filter_broad_arms = rhs_expr.is_some_and(|expr| {
+                has_exact_builtin_membership_semantics(expr.expression_value())
+            }) || can_filter_membership_union_arms(self.db, rhs_ty);
 
             let mut builder = UnionBuilder::new(self.db);
 

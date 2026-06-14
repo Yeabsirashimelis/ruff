@@ -341,6 +341,87 @@ def final_custom_contains(
         reveal_type(x)  # revealed: Literal["missing"] | Payload
 ```
 
+## Exact containers inside assignment expressions
+
+An assignment expression does not change the containment behavior of the value it wraps. An exact
+list display can therefore still remove union members that cannot compare equal to any list item:
+
+```py
+from typing import final
+
+@final
+class Token: ...
+
+@final
+class OtherToken: ...
+
+def assignment_expression(value: Token | None) -> None:
+    if value in (items := [OtherToken()]):
+        reveal_type(value)  # revealed: Never
+```
+
+## Type variables with known containment
+
+A type variable uses its upper bound or constraints. Broad union members can be removed when every
+possible container has known containment behavior:
+
+```py
+from collections.abc import Iterator
+from typing import Literal, TypeVar, final
+
+@final
+class Token: ...
+
+@final
+class FinalIterable:
+    def __iter__(self) -> Iterator[Literal[1]]:
+        yield 1
+
+BoundFinalIterable = TypeVar("BoundFinalIterable", bound=FinalIterable)
+
+def bounded_final_iterable(
+    value: Token | Literal[1],
+    values: BoundFinalIterable,
+) -> None:
+    if value in values:
+        reveal_type(value)  # revealed: Literal[1]
+
+BoundTuple = TypeVar("BoundTuple", bound=tuple[Literal[1], ...])
+
+def bounded_tuple(
+    value: Token | Literal[1],
+    values: BoundTuple,
+) -> None:
+    if value in values:
+        reveal_type(value)  # revealed: Literal[1]
+
+ConstrainedTuple = TypeVar(
+    "ConstrainedTuple",
+    tuple[Literal[1], ...],
+    tuple[Literal[1]],
+)
+
+def constrained_tuple(
+    value: Token | Literal[1],
+    values: ConstrainedTuple,
+) -> None:
+    if value in values:
+        reveal_type(value)  # revealed: Literal[1]
+
+class OpenIterable:
+    def __iter__(self) -> Iterator[Literal[1]]:
+        yield 1
+
+MixedContainers = TypeVar("MixedContainers", FinalIterable, OpenIterable)
+
+def mixed_constraints(
+    value: Token | Literal[1],
+    values: MixedContainers,
+) -> None:
+    if value in values:
+        reveal_type(value)  # revealed: Literal[1] | Token
+```
+
 ## Built-in containment with overridden iteration
 
 `list.__contains__` searches the values stored in the list. Overriding `__iter__` does not change
