@@ -308,6 +308,8 @@ fn sequence_pattern_is_exhaustive_for_subject(
 /// pattern can return a type wider than `subject_ty`; for example, `case Base()` returns `Base`
 /// even for a `Child` subject. Class patterns need the current subject type when the subject is a
 /// non-final subclass, while an exact or final class can make member extraction exhaustive.
+/// Type variables are expanded to their upper bound or constraints for this check. When every
+/// possible value matches, the result preserves the original type variable.
 /// This treats access to a definitely bound descriptor as successful even though the descriptor
 /// could raise at runtime. The same rule is propagated through nested sequence, `or`, and `as`
 /// patterns.
@@ -342,6 +344,19 @@ pub(crate) fn definite_match_pattern_type_for_subject<'db>(
                 .iter()
                 .map(|element| definite_match_pattern_type_for_subject(db, kind, *element)),
         );
+    }
+
+    let filtering_subject_ty = resolved_subject_ty.flatten_typevars(db);
+    if filtering_subject_ty != resolved_subject_ty {
+        let definite_ty = definite_match_pattern_type_for_subject(db, kind, filtering_subject_ty);
+        return if filtering_subject_ty.is_subtype_of(db, definite_ty) {
+            subject_ty
+        } else {
+            IntersectionBuilder::new(db)
+                .add_positive(subject_ty)
+                .add_positive(definite_ty)
+                .build()
+        };
     }
 
     match kind {

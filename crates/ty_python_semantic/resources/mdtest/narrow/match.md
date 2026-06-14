@@ -1646,6 +1646,44 @@ def builtin_positional_behavior_comes_from_pattern_class(
             return 1
 ```
 
+## Constrained type variables
+
+A constrained type variable is exhaustive when the requested attribute is present on every possible
+final class. If one constraint can be missing the attribute, the match can still fall through:
+
+```py
+from typing import TypeVar, final
+
+class PatternBase: ...
+
+@final
+class FirstWithX(PatternBase):
+    x: int = 0
+
+@final
+class SecondWithX(PatternBase):
+    x: int = 0
+
+@final
+class WithoutX(PatternBase): ...
+
+AllWithX = TypeVar("AllWithX", FirstWithX, SecondWithX)
+PossiblyWithoutX = TypeVar("PossiblyWithoutX", FirstWithX, WithoutX)
+
+def constrained_typevar_is_exhaustive(value: AllWithX) -> int:
+    match value:
+        case PatternBase(x=_):
+            return 1
+
+def constrained_typevar_can_fall_through(
+    value: PossiblyWithoutX,
+    # error: [invalid-return-type]
+) -> int:
+    match value:
+        case PatternBase(x=_):
+            return 1
+```
+
 ## Nested class patterns
 
 Every nested pattern must match all possible values of the attribute it receives:
