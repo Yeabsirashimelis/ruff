@@ -1539,6 +1539,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
                 callable_pattern_type(self.db)
             }
+            dynamic @ Type::Dynamic(_) => dynamic,
             _ => Type::object(),
         };
         let context = ClassPatternContext {
