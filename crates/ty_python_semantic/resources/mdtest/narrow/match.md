@@ -1285,6 +1285,18 @@ def test_match_class_narrows_gradual_subjects(
         case GradualSubjectBox():
             reveal_type(unknown_value)  # revealed: Unknown & GradualSubjectBox
 
+def test_match_mapping_narrows_gradual_subjects(
+    any_value: Any,
+    unknown_value: Unknown,
+) -> None:
+    match any_value:
+        case {"key": _}:
+            reveal_type(any_value)  # revealed: Any & Top[Mapping[Unknown, object]]
+
+    match unknown_value:
+        case {"key": _}:
+            reveal_type(unknown_value)  # revealed: Unknown & Top[Mapping[Unknown, object]]
+
 def test_match_class_narrows_subject(
     value: TaggedPayload[Literal["int"], int] | TaggedPayload[Literal["str"], str],
 ) -> None:
