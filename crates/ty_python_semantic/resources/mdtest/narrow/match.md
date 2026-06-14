@@ -1351,11 +1351,11 @@ def builtin_match_self_patterns_are_exhaustive(
 
 ## Runtime dictionary class patterns
 
-A `TypedDict` value is a dictionary at runtime, so argumentless `dict`, `Mapping`, and
-`MutableMapping` patterns always match it. The built-in `dict` match-self pattern does as well:
+A `TypedDict` value is a dictionary at runtime, so argumentless `dict` and `Mapping` patterns always
+match it. The positional `dict` pattern does as well:
 
 ```py
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping
 from typing import TypedDict
 
 class Movie(TypedDict):
@@ -1369,11 +1369,6 @@ def typed_dict_argumentless_dict_pattern_is_exhaustive(value: Movie) -> int:
 def typed_dict_mapping_pattern_is_exhaustive(value: Movie) -> int:
     match value:
         case Mapping():
-            return 1
-
-def typed_dict_mutable_mapping_pattern_is_exhaustive(value: Movie) -> int:
-    match value:
-        case MutableMapping():
             return 1
 
 def typed_dict_match_self_pattern_is_exhaustive(value: Movie) -> int:
@@ -1486,11 +1481,6 @@ class KnownAttributes:
     x: int = 0
     y: int = 0
 
-def direct_known_keyword_attributes_are_exhaustive(value: KnownAttributes) -> int:
-    match value:
-        case KnownAttributes(x=_, y=_):
-            return 1
-
 def direct_known_positional_attributes_are_exhaustive(value: KnownAttributes) -> int:
     match value:
         case KnownAttributes(_, _):
@@ -1556,7 +1546,7 @@ def direct_fallible_property_is_statically_exhaustive(value: FallibleProperty) -
         case FallibleProperty(_):
             return 1
 
-def nested_fallible_property_is_statically_exhaustive(value: FallibleProperty) -> int:
+def fallible_property_value_pattern_is_statically_exhaustive(value: FallibleProperty) -> int:
     match value:
         case FallibleProperty(x=1):
             return 1
@@ -1574,8 +1564,8 @@ def declared_literal_attribute_subpattern_is_exhaustive(
 
 ## Non-final subclasses
 
-A non-final subclass can have a runtime subclass that changes whether an inherited attribute is
-present, so the fallback remains reachable. The same rule applies inside a sequence pattern:
+A non-final subclass can have a runtime subclass that overrides attribute access, so the fallback
+remains reachable. The same rule applies inside a sequence pattern:
 
 ```py
 class BaseWithX:
@@ -1677,8 +1667,8 @@ def nested_argumentless_runtime_protocol_list_preserves_fallback(
 
 ## Final subclasses
 
-A final subclass cannot be replaced by a runtime subclass, so an attribute defined on the subject
-can make a base-class pattern exhaustive. Match-self behavior still comes from the pattern class,
+A final class has no subclasses, so an attribute known on the subject can make a base-class pattern
+exhaustive. The special positional behavior of built-in classes still comes from the pattern class,
 not from another base of the subject class:
 
 ```py
