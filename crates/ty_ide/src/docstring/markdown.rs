@@ -44,3 +44,7 @@ pub(super) fn render(raw: &str) -> String {
     let source = structured::render(raw);
     postprocess::render(source.as_ref())
 }
+
+pub(super) fn render_fragment(raw: &str) -> String {
+    postprocess::render(raw)
+}
