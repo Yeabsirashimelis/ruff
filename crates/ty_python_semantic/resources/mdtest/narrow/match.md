@@ -1601,9 +1601,9 @@ def nested_non_final_subclass_is_not_exhaustive(
 
 ## Runtime-checkable protocol patterns
 
-Runtime-checkable protocols use `isinstance` at runtime. A non-final class or one with only an
-attribute declaration can have a subclass whose runtime behavior differs, so these patterns are not
-exhaustive:
+Runtime-checkable protocols use `isinstance` at runtime. A non-final subject class can have a
+runtime subclass whose member behavior differs, so the fallback remains reachable even when the
+class defines or declares every protocol member:
 
 ```py
 from typing import Protocol, final, runtime_checkable
