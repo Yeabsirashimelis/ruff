@@ -1601,7 +1601,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         }
     }
 
-    fn class_pattern_argument_types_for_arm(
+    fn try_class_pattern_argument_types_for_arm(
         &self,
         kind: &ClassPatternPredicateKind<'db>,
         context: &ClassPatternContext<'db>,
@@ -1687,7 +1687,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 return None;
             }
 
-            let argument_types = analyzer.class_pattern_argument_types_for_arm(
+            let argument_types = analyzer.try_class_pattern_argument_types_for_arm(
                 kind,
                 &context,
                 narrowed_subject_ty,
@@ -1728,7 +1728,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             if narrowed_subject_ty.is_never() {
                 return None;
             }
-            let argument_types = analyzer.class_pattern_argument_types_for_arm(
+            let argument_types = analyzer.try_class_pattern_argument_types_for_arm(
                 kind,
                 &context,
                 narrowed_subject_ty,
