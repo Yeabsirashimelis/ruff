@@ -977,15 +977,17 @@ def test_match_gradual_class_captures(any_value: Any, unknown_value: Unknown) ->
 
 ## Mapping pattern captures
 
-Mapping patterns use the mapping's value type. The key type of an ordinary `Mapping` does not prove
-that another key is absent because a custom `get` method may accept a broader set of keys. `**rest`
-is always a new `dict` containing the unmatched items.
+Python reads an explicit mapping entry by calling `get` with a sentinel. A custom `get` method can
+therefore produce a broader type than `__getitem__`. The key type of an ordinary `Mapping` does not
+prove that another key is absent because a custom `get` method may accept a broader set of keys.
+`**rest` is always a new `dict` containing the unmatched items.
 
 ```py
-from collections.abc import Mapping
-from typing import Literal, TypeVar
+from collections.abc import Iterator, Mapping
+from typing import Literal, overload, TypeVar
 
 MappingValueT = TypeVar("MappingValueT")
+Default = TypeVar("Default")
 
 def test_match_mapping_bindings(value: Mapping[str, MappingValueT]) -> MappingValueT:
     match value:
@@ -1001,6 +1003,34 @@ def test_match_dict_bindings(value: dict[str, int]) -> None:
     match value:
         case {"item": item, **rest} as whole:
             reveal_type(whole)  # revealed: dict[str, int]
+
+class CustomGet(Mapping[str, int | str]):
+    def __getitem__(self, key: str) -> int:
+        return 1
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(("item",))
+
+    def __len__(self) -> int:
+        return 1
+
+    @overload
+    def get(self, key: object) -> int | str | None: ...
+
+    @overload
+    def get(self, key: object, default: Default) -> int | str | Default: ...
+
+    def get(
+        self, key: object, default: Default | None = None
+    ) -> int | str | Default | None:
+        if key == "item":
+            return "custom value"
+        return default
+
+def test_match_mapping_uses_get(value: CustomGet) -> None:
+    match value:
+        case {"item": item}:
+            reveal_type(item)  # revealed: int | str
 
 def test_incompatible_declared_mapping_captures(value: Mapping[str, int]) -> None:
     item: str

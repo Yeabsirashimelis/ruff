@@ -36,6 +36,7 @@ use ruff_python_ast::name::Name;
 use ruff_python_stdlib::identifiers::is_identifier;
 
 use super::UnionType;
+use super::call::CallArguments;
 use super::enums::enum_metadata;
 use super::equality::{evaluate_type_equality, evaluate_type_inequality, may_compare_equal};
 use itertools::Itertools;
@@ -1612,10 +1613,26 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             return Some(typed_dict.value_type(self.db));
         }
 
-        let Some((_, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db) else {
+        let Some((_, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db)
+        else {
             return Some(Type::unknown());
         };
-        Some(mapping_value_ty)
+        let Some(get_method) = subject_ty
+            .member(self.db, "get")
+            .place
+            .ignore_possibly_undefined()
+        else {
+            return Some(Type::unknown());
+        };
+        Some(
+            get_method
+                .try_call(
+                    self.db,
+                    &CallArguments::positional([key_ty, mapping_value_ty]),
+                )
+                .map(|bindings| bindings.return_type(self.db))
+                .unwrap_or_else(|error| error.return_type(self.db)),
+        )
     }
 
     fn analyze_successful_mapping_pattern(
