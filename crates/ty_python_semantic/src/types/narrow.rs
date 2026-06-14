@@ -1511,7 +1511,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     /// It describes values that can match, not values that the pattern definitely matches.
     /// Negative narrowing and exhaustiveness use the stricter definite-match analysis.
     fn match_pattern_subject_type(
-        &mut self,
+        &self,
         pattern: &PatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> Type<'db> {
@@ -1672,7 +1672,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn analyze_successful_class_pattern(
-        &mut self,
+        &self,
         kind: &ClassPatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
@@ -1714,7 +1714,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn match_class_pattern_subject_type(
-        &mut self,
+        &self,
         kind: &ClassPatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> Type<'db> {
@@ -1879,7 +1879,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn match_mapping_pattern_subject_type(
-        &mut self,
+        &self,
         kind: &MappingPatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> Type<'db> {
@@ -2004,7 +2004,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn match_sequence_pattern_subject_type(
-        &mut self,
+        &self,
         kind: &SequencePatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> Type<'db> {
@@ -2053,10 +2053,10 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     }
 
     fn match_pattern_subject_type_from_arms(
-        &mut self,
+        &self,
         subject_ty: Type<'db>,
         preserve_equivalent_type: bool,
-        mut match_arm: impl FnMut(&mut Self, Type<'db>) -> Option<Type<'db>>,
+        match_arm: impl Fn(&Self, Type<'db>) -> Option<Type<'db>>,
     ) -> Type<'db> {
         let subject_arms = self.match_pattern_subject_arms(subject_ty);
         let grouped_arms = subject_arms
