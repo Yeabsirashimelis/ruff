@@ -1241,8 +1241,9 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         builder.try_build()
     }
 
-    // TODO: Share more of this implementation with equality narrowing once we can prove that
-    // containment uses element-wise equality rather than a custom `__contains__` method.
+    // TODO: The finite-domain branch below still narrows from iterator element types without
+    // proving that containment uses equality. Once it uses the same containment proof as broad
+    // union arms, share its comparison logic with equality narrowing.
     fn evaluate_expr_in(
         &mut self,
         lhs_ty: Type<'db>,
