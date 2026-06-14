@@ -1597,15 +1597,10 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             return Some(typed_dict.value_type(self.db));
         }
 
-        let Some((mapping_key_ty, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db)
-        else {
+        let Some((_, mapping_value_ty)) = subject_ty.unpack_keys_and_items(self.db) else {
             return Some(Type::unknown());
         };
-
-        if mapping_key_ty.is_never() {
-            return None;
-        }
-        may_compare_equal(self.db, mapping_key_ty, key_ty).then_some(mapping_value_ty)
+        Some(mapping_value_ty)
     }
 
     fn analyze_successful_mapping_pattern(

@@ -962,9 +962,9 @@ def test_match_gradual_class_captures(any_value: Any, unknown_value: Unknown) ->
 
 ## Mapping pattern captures
 
-Mapping patterns use the mapping's key and value types. A keyed pattern can remove members of a
-union that cannot contain the requested key, while `**rest` is always a new `dict` containing the
-unmatched items.
+Mapping patterns use the mapping's value type. The key type of an ordinary `Mapping` does not prove
+that another key is absent because a custom `get` method may accept a broader set of keys. `**rest`
+is always a new `dict` containing the unmatched items.
 
 ```py
 from collections.abc import Mapping
@@ -997,31 +997,14 @@ def test_incompatible_declared_mapping_captures(value: Mapping[str, int]) -> Non
             reveal_type(item)  # revealed: str
             reveal_type(rest)  # revealed: dict[str, str]
 
-def test_match_mapping_key_filters_union_members(
+def test_match_mapping_key_keeps_union_members(
     value: dict[Literal["a"], int] | dict[Literal["b"], str],
 ) -> None:
     match value:
         case {"a": item} as whole:
-            reveal_type(item)  # revealed: int
-            reveal_type(whole)  # revealed: dict[Literal["a"], int]
-```
-
-An `IntEnum` key can compare equal to the corresponding integer literal, so it can select the value
-from a mapping with integer literal keys:
-
-```py
-from enum import IntEnum
-from typing import Literal
-
-class MappingKey(IntEnum):
-    ITEM = 1
-
-def test_match_mapping_intenum_key(
-    value: dict[Literal[1], int],
-) -> None:
-    match value:
-        case {MappingKey.ITEM: item}:
-            reveal_type(item)  # revealed: int
+            reveal_type(item)  # revealed: int | str
+            # revealed: dict[Literal["a"], int] | dict[Literal["b"], str]
+            reveal_type(whole)
 ```
 
 Mapping values are passed to nested patterns. If any nested pattern cannot match, the mapping
@@ -1045,18 +1028,18 @@ def test_later_mapping_pattern_failure_rejects_bindings(
             reveal_type(rest)  # revealed: Never
 ```
 
-A dictionary whose key type is `Never` cannot contain any keys, so a mapping pattern that requests a
-key can never match:
+Even a dictionary whose declared key type is `Never` may be a subclass with a custom `get` method.
+The annotation therefore does not prove that a keyed pattern is impossible:
 
 ```py
 from typing_extensions import Never
 
-def test_match_mapping_rejects_empty_key_domain(
+def test_match_mapping_keeps_empty_key_domain(
     value: dict[Never, int],
 ) -> None:
     match value:
         case {"item": item}:
-            reveal_type(item)  # revealed: Never
+            reveal_type(item)  # revealed: int
 ```
 
 ## Mapping captures from `Any` and `Unknown`
