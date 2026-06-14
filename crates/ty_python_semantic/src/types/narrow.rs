@@ -409,7 +409,7 @@ pub(crate) fn pattern_success_types<'db>(
     let subject = pattern.subject(db);
     let incoming_subject_ty = infer_same_file_expression_type(db, subject, TypeContext::default());
     let incoming_subject_ty = type_narrowed_by_previous_patterns(db, pattern, incoming_subject_ty);
-    let mut analyzer = PatternSuccessAnalyzer::new(db, pattern.scope(db));
+    let analyzer = PatternSuccessAnalyzer::new(db, pattern.scope(db));
     let result = analyzer.analyze_successful_pattern(pattern.kind(db), incoming_subject_ty);
     PatternSuccessTypes {
         bindings: FrozenMap::from(result.bindings),
@@ -1232,7 +1232,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     /// A failed pattern binds no names. For an `or` pattern, each later alternative sees only the
     /// values not definitely matched by an earlier alternative.
     fn analyze_successful_pattern(
-        &mut self,
+        &self,
         pattern: &PatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
@@ -1357,7 +1357,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     ///
     /// The `str` arm remains because a `str` subclass can compare equal to `1`.
     fn match_value_pattern_subject_type(
-        &mut self,
+        &self,
         value: Expression<'db>,
         subject_ty: Type<'db>,
     ) -> Type<'db> {
@@ -1470,7 +1470,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
     ///             reveal_type(item)  # int
     /// ```
     fn analyze_successful_sequence_pattern(
-        &mut self,
+        &self,
         kind: &SequencePatternPredicateKind<'db>,
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
