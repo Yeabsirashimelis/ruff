@@ -242,7 +242,7 @@ def dynamic_attribute_value_pattern_preserves_fallthrough(target: int) -> None:
 def dynamic_attribute_capture_preserves_fallthrough(target: int) -> None:
     match target:
         case DynamicClass(real=item):
-            reveal_type(item)  # revealed: int
+            reveal_type(item)  # revealed: int & Any
         case _:
             target.missing  # error: [unresolved-attribute]
 ```
