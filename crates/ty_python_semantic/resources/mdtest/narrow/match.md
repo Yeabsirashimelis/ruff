@@ -1065,9 +1065,10 @@ def test_match_gradual_mapping_captures(any_value: Any, unknown_value: Unknown) 
 
 ## `TypedDict` mapping patterns
 
-For a `TypedDict`, a literal key uses the declared field type. For a closed `TypedDict`, a pattern
-using an undeclared key is impossible. Tags keep each `TypedDict` together with its corresponding
-value type through an `or` pattern.
+For a `TypedDict`, a literal key uses the declared field type. An undeclared key on an implicitly
+open `TypedDict` has type `object` because it may be a hidden item. For a closed `TypedDict`, a
+pattern using an undeclared key is impossible. Tags keep each `TypedDict` together with its
+corresponding value type through an `or` pattern.
 
 ```py
 from typing import Literal
@@ -1097,6 +1098,11 @@ def test_match_optional_typed_dict_field(value: OptionalPayload) -> None:
     match value:
         case {"value": item}:
             reveal_type(item)  # revealed: int
+
+def test_match_implicitly_open_typed_dict_field(value: IntPayload) -> None:
+    match value:
+        case {"other": item}:
+            reveal_type(item)  # revealed: object
 
 class ClosedIntPayload(TypedDict, closed=True):
     tag: Literal["int"]
