@@ -418,9 +418,9 @@ def test_match_sequence_as_pattern_excludes_previous_cases(
 
 ## Ordered `or`-pattern bindings
 
-An earlier `or` alternative must only be removed when every value of its type is certain to match. A
-protocol class pattern can still fail if a declared member is absent at runtime, so the later
-sequence alternative remains possible:
+Alternatives are tried from left to right, but a later alternative must keep any value for which an
+earlier pattern can fail. Here, `Values.x` is only an annotation, so `HasX()` can fail at runtime
+and the sequence alternative can still bind the value:
 
 ```py
 from typing import Protocol, runtime_checkable
@@ -1077,8 +1077,8 @@ def _(x: Literal["foo", "bar", 42, b"foo"] | bool | complex):
             reveal_type(x)  # revealed: Literal["bar"] | (int & ~Literal[42]) | float | complex
 ```
 
-The same limitation applies when a value pattern appears inside a sequence: matching a literal
-proves equality, but not that the element has the literal's nominal type.
+The same limitation applies inside a sequence. Matching a literal proves only that the element
+compares equal to that literal, not that the element has the same type.
 
 ```py
 def test_match_value_sequence(value: object) -> None:
