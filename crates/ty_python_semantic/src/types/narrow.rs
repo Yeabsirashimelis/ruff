@@ -1241,47 +1241,7 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 self.analyze_successful_sequence_pattern(kind, subject_ty)
             }
             PatternPredicateKind::Or(patterns) => {
-                let mut patterns = patterns.iter();
-                let Some(first_pattern) = patterns.next() else {
-                    return PatternSuccessResult {
-                        matched_subject_ty: Type::Never,
-                        bindings: BTreeMap::new(),
-                    };
-                };
-                let first = self.analyze_successful_pattern(first_pattern, subject_ty);
-                let mut matched_subject_types = UnionBuilder::new(self.db);
-                matched_subject_types.add_in_place(first.matched_subject_ty);
-                // All alternatives bind the same names. Merge by logical place so the case body
-                // sees the union even though the semantic walk visits the definitions in order.
-                let mut bindings = first.bindings;
-                let mut remaining_subject_ty = subject_ty;
-                let mut previous_pattern = first_pattern;
-
-                for pattern in patterns {
-                    let definitely_matched_ty = if Self::contains_class_pattern(previous_pattern) {
-                        // A class pattern can fail after its runtime type check, for example when
-                        // a protocol member is only declared but is absent at runtime. Without the
-                        // subject type, `definite_match_pattern_type` cannot distinguish those
-                        // cases, so leave the later alternative intact.
-                        Type::Never
-                    } else {
-                        definite_match_pattern_type(self.db, previous_pattern)
-                    };
-                    remaining_subject_ty = IntersectionBuilder::new(self.db)
-                        .add_positive(remaining_subject_ty)
-                        .add_negative(definitely_matched_ty)
-                        .build();
-                    let alternative =
-                        self.analyze_successful_pattern(pattern, remaining_subject_ty);
-                    matched_subject_types.add_in_place(alternative.matched_subject_ty);
-                    self.merge_bindings(&mut bindings, alternative.bindings);
-                    previous_pattern = pattern;
-                }
-
-                PatternSuccessResult {
-                    matched_subject_ty: matched_subject_types.build(),
-                    bindings,
-                }
+                self.analyze_successful_or_pattern(patterns, subject_ty)
             }
             PatternPredicateKind::As(pattern, name) => {
                 let mut result = pattern.as_deref().map_or_else(
@@ -1376,6 +1336,63 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             PatternPredicateKind::Or(patterns) => patterns.iter().any(Self::contains_class_pattern),
             PatternPredicateKind::As(Some(pattern), _) => Self::contains_class_pattern(pattern),
             _ => false,
+        }
+    }
+
+    fn analyze_successful_or_pattern(
+        &self,
+        patterns: &[PatternPredicateKind<'db>],
+        subject_ty: Type<'db>,
+    ) -> PatternSuccessResult<'db> {
+        self.analyze_pattern_subject_arms(subject_ty, |analyzer, subject_ty| {
+            Some(analyzer.analyze_successful_or_pattern_arm(patterns, subject_ty))
+        })
+    }
+
+    fn analyze_successful_or_pattern_arm(
+        &self,
+        patterns: &[PatternPredicateKind<'db>],
+        subject_ty: Type<'db>,
+    ) -> PatternSuccessResult<'db> {
+        let mut patterns = patterns.iter();
+        let Some(first_pattern) = patterns.next() else {
+            return PatternSuccessResult {
+                matched_subject_ty: Type::Never,
+                bindings: BTreeMap::new(),
+            };
+        };
+        let first = self.analyze_successful_pattern(first_pattern, subject_ty);
+        let mut matched_subject_types = UnionBuilder::new(self.db);
+        matched_subject_types.add_in_place(first.matched_subject_ty);
+        // All alternatives bind the same names. Merge by logical place so the case body sees the
+        // union even though the semantic walk visits the definitions in order.
+        let mut bindings = first.bindings;
+        let mut remaining_subject_ty = subject_ty;
+        let mut previous_pattern = first_pattern;
+
+        for pattern in patterns {
+            let definitely_matched_ty = if Self::contains_class_pattern(previous_pattern) {
+                // A class pattern can fail after its runtime type check, for example when a
+                // protocol member is only declared but is absent at runtime. Without the subject
+                // type, `definite_match_pattern_type` cannot distinguish those cases, so leave the
+                // later alternative intact.
+                Type::Never
+            } else {
+                definite_match_pattern_type(self.db, previous_pattern)
+            };
+            remaining_subject_ty = IntersectionBuilder::new(self.db)
+                .add_positive(remaining_subject_ty)
+                .add_negative(definitely_matched_ty)
+                .build();
+            let alternative = self.analyze_successful_pattern(pattern, remaining_subject_ty);
+            matched_subject_types.add_in_place(alternative.matched_subject_ty);
+            self.merge_bindings(&mut bindings, alternative.bindings);
+            previous_pattern = pattern;
+        }
+
+        PatternSuccessResult {
+            matched_subject_ty: matched_subject_types.build(),
+            bindings,
         }
     }
 
@@ -1475,65 +1492,28 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         subject_ty: Type<'db>,
     ) -> PatternSuccessResult<'db> {
         let target_len = Self::sequence_pattern_target_len(kind);
-        let subject_arms = self.sequence_pattern_subject_arms(subject_ty);
         let sequence_ty = necessary_sequence_pattern_type(self.db, kind);
-        let grouped_arms = subject_arms
-            .into_iter()
-            .chunk_by(|(original_subject_ty, _)| *original_subject_ty);
-        let mut matched_subject_types = UnionBuilder::new(self.db);
-        let mut bindings = BTreeMap::new();
-
-        for (original_subject_ty, arms) in &grouped_arms {
-            let filtering_types = original_subject_ty
-                .flatten_typevars(self.db)
-                .resolve_type_alias(self.db);
-            let mut matched_types = UnionBuilder::new(self.db);
-
-            for (_, filtering_subject_ty) in arms {
-                let Some((narrowed_subject_ty, element_types)) =
-                    self.sequence_pattern_arm(filtering_subject_ty, target_len, sequence_ty)
-                else {
-                    continue;
-                };
-
-                let mut arm_bindings = BTreeMap::new();
-                let mut arm_matches = true;
-                let mut matched_element_types = Vec::with_capacity(kind.patterns.len());
-                for (pattern, element_ty) in kind.patterns.iter().zip(element_types) {
-                    let child = self.analyze_successful_pattern(pattern, element_ty);
-                    if child.matched_subject_ty.is_never() {
-                        arm_matches = false;
-                        break;
-                    }
-                    matched_element_types.push(child.matched_subject_ty);
-                    self.merge_bindings(&mut arm_bindings, child.bindings);
+        self.analyze_pattern_subject_arms(subject_ty, |analyzer, subject_ty| {
+            let (narrowed_subject_ty, element_types) =
+                analyzer.sequence_pattern_arm(subject_ty, target_len, sequence_ty)?;
+            let mut bindings = BTreeMap::new();
+            let mut matched_element_types = Vec::with_capacity(kind.patterns.len());
+            for (pattern, element_ty) in kind.patterns.iter().zip(element_types) {
+                let child = analyzer.analyze_successful_pattern(pattern, element_ty);
+                if child.matched_subject_ty.is_never() {
+                    return None;
                 }
-
-                if arm_matches {
-                    matched_types.add_in_place(self.intersect_types(
-                        narrowed_subject_ty,
-                        self.successful_sequence_pattern_type(kind, &matched_element_types),
-                    ));
-                    self.merge_bindings(&mut bindings, arm_bindings);
-                }
+                matched_element_types.push(child.matched_subject_ty);
+                analyzer.merge_bindings(&mut bindings, child.bindings);
             }
-
-            let matched_types = matched_types.build();
-            matched_subject_types.add_in_place(if original_subject_ty.has_typevar(self.db) {
-                if matched_types.is_equivalent_to(self.db, filtering_types) {
-                    original_subject_ty
-                } else {
-                    self.intersect_types(original_subject_ty, matched_types)
-                }
-            } else {
-                matched_types
-            });
-        }
-
-        PatternSuccessResult {
-            matched_subject_ty: matched_subject_types.build(),
-            bindings,
-        }
+            Some(PatternSuccessResult {
+                matched_subject_ty: analyzer.intersect_types(
+                    narrowed_subject_ty,
+                    analyzer.successful_sequence_pattern_type(kind, &matched_element_types),
+                ),
+                bindings,
+            })
+        })
     }
 
     fn successful_sequence_pattern_type(
@@ -1580,11 +1560,63 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         Some((narrowed_subject_ty, unpacker.into_types().collect()))
     }
 
+    fn analyze_pattern_subject_arms(
+        &self,
+        subject_ty: Type<'db>,
+        analyze_arm: impl Fn(&Self, Type<'db>) -> Option<PatternSuccessResult<'db>>,
+    ) -> PatternSuccessResult<'db> {
+        let subject_arms = self.match_pattern_subject_arms(subject_ty);
+        let grouped_arms = subject_arms
+            .into_iter()
+            .chunk_by(|(original_subject_ty, _)| *original_subject_ty);
+        let mut matched_subject_types = UnionBuilder::new(self.db);
+        let mut bindings = BTreeMap::new();
+
+        for (original_subject_ty, arms) in &grouped_arms {
+            let mut matched_types = UnionBuilder::new(self.db);
+
+            for (_, filtering_subject_ty) in arms {
+                if let Some(arm) = analyze_arm(self, filtering_subject_ty) {
+                    matched_types.add_in_place(arm.matched_subject_ty);
+                    self.merge_bindings(&mut bindings, arm.bindings);
+                }
+            }
+
+            matched_subject_types.add_in_place(
+                self.matched_subject_type_for_original(original_subject_ty, matched_types.build()),
+            );
+        }
+
+        PatternSuccessResult {
+            matched_subject_ty: matched_subject_types.build(),
+            bindings,
+        }
+    }
+
+    fn matched_subject_type_for_original(
+        &self,
+        original_subject_ty: Type<'db>,
+        matched_types: Type<'db>,
+    ) -> Type<'db> {
+        let filtering_types = original_subject_ty
+            .flatten_typevars(self.db)
+            .resolve_type_alias(self.db);
+        if matched_types.is_equivalent_to(self.db, filtering_types)
+            && original_subject_ty.has_typevar(self.db)
+        {
+            original_subject_ty
+        } else if original_subject_ty.has_typevar(self.db) {
+            self.intersect_types(original_subject_ty, matched_types)
+        } else {
+            matched_types
+        }
+    }
+
     /// Pair each original subject type with the union members used to test the pattern.
     ///
-    /// Type variables are expanded for matching, but the original type is kept so a successful
-    /// whole-sequence binding can still use that type variable.
-    fn sequence_pattern_subject_arms(
+    /// Type variables are expanded for matching, but each arm keeps the original type so a
+    /// successful pattern result can preserve that type variable.
+    fn match_pattern_subject_arms(
         &self,
         subject_ty: Type<'db>,
     ) -> SmallVec<[(Type<'db>, Type<'db>); 2]> {
