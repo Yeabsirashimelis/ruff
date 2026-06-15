@@ -596,9 +596,10 @@ use the instance type described by that annotation.
 ```py
 class IndirectPattern: ...
 
-PatternClass: type[IndirectPattern] = IndirectPattern
-
-def test_match_indirect_class_pattern(value: object) -> None:
+def test_match_indirect_class_pattern(
+    value: object,
+    PatternClass: type[IndirectPattern],
+) -> None:
     match value:
         case PatternClass() as item:
             reveal_type(item)  # revealed: IndirectPattern
