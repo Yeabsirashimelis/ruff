@@ -921,6 +921,19 @@ fn is_exact_membership_value_domain<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool
     ty == Type::Never || ty.is_single_valued(db)
 }
 
+fn has_top_level_non_self_typevar<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool {
+    match ty.resolve_type_alias(db) {
+        Type::TypeVar(type_var) => !type_var.typevar(db).is_self(db),
+        Type::Union(union) => union.elements(db).iter().any(|element| {
+            matches!(
+                element.resolve_type_alias(db),
+                Type::TypeVar(type_var) if !type_var.typevar(db).is_self(db)
+            )
+        }),
+        _ => false,
+    }
+}
+
 /// Return the type established by a successful class pattern.
 ///
 /// This also handles indirect class expressions such as `PatternClass: type[A]`. It is only a
@@ -1285,7 +1298,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             }
             PatternPredicateKind::As(None, _) | PatternPredicateKind::Star(_) => None,
             PatternPredicateKind::Or(patterns) => {
-                if subject_ty.has_typevar(self.db) {
+                if has_top_level_non_self_typevar(self.db, subject_ty) {
                     let matched_subject_ty = PatternSuccessAnalyzer::new(self.db, self.scope())
                         .match_pattern_subject_type(pattern, subject_ty);
                     return (!matched_subject_ty.is_equivalent_to(self.db, subject_ty))
