@@ -925,11 +925,14 @@ fn positive_class_pattern_type<'db>(
         Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
             Some(callable_pattern_type(db))
         }
-        _ => ClassInfoConstraintFunction::IsInstance.generate_constraint(
-            db,
-            class_expression_ty,
-            true,
-        ),
+        _ if class_expression_ty.is_assignable_to(db, KnownClass::Type.to_instance(db)) => {
+            ClassInfoConstraintFunction::IsInstance.generate_constraint(
+                db,
+                class_expression_ty,
+                true,
+            )
+        }
+        _ => None,
     }
 }
 
