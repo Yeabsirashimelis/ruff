@@ -707,8 +707,9 @@ def test_match_typed_dict_alias_preserves_mapping_runtime_type(
 
 ## Class pattern captures
 
-Class patterns pass the type of each extracted attribute to their nested patterns. The surrounding
-`as` pattern keeps the subject's original generic type or type variable.
+Class patterns pass the type of each extracted attribute to their nested patterns. This also works
+when the pattern class is held in a variable typed as `type[Class]`. The surrounding `as` pattern
+keeps the subject's original generic type or type variable.
 
 ```py
 from dataclasses import dataclass
@@ -720,12 +721,22 @@ class PatternBox(Generic[T]):
     __match_args__ = ("value",)
     value: T
 
+class IndirectCapture:
+    value: int
+
+CapturePattern: type[IndirectCapture] = IndirectCapture
+
 def test_match_class_keyword_capture(value: PatternBox[T]) -> T:
     match value:
         case PatternBox(value=item) as whole:
             reveal_type(item)  # revealed: T@test_match_class_keyword_capture
             reveal_type(whole)  # revealed: PatternBox[T@test_match_class_keyword_capture]
             return item
+
+def test_match_indirect_class_keyword_capture(value: object) -> None:
+    match value:
+        case CapturePattern(value=item):
+            reveal_type(item)  # revealed: int
 
 @dataclass
 class DataclassBox(Generic[T]):

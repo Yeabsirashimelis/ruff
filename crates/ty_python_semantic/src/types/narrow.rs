@@ -1535,16 +1535,8 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         let class_expr_ty =
             infer_same_file_expression_type(self.db, kind.class, TypeContext::default());
         let class = class_expr_ty.as_class_literal();
-        let class_ty = match class_expr_ty {
-            Type::ClassLiteral(class) => {
-                Type::instance(self.db, class.top_materialization(self.db))
-            }
-            Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
-                callable_pattern_type(self.db)
-            }
-            dynamic @ Type::Dynamic(_) => dynamic,
-            _ => Type::object(),
-        };
+        let class_ty =
+            positive_class_pattern_type(self.db, class_expr_ty).unwrap_or_else(Type::object);
         let context = ClassPatternContext {
             class,
             class_ty,
