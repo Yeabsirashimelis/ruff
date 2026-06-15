@@ -3259,12 +3259,8 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
     ) -> Option<NarrowingConstraints<'db>> {
         let subject_place = PlaceExpr::try_from_expr(subject.node_ref(self.db).node(self.module))?;
         let place = self.expect_place(&subject_place);
-        let class_type = infer_same_file_expression_type(self.db, cls, TypeContext::default());
 
         if !is_positive {
-            if matches!(class_type, Type::Dynamic(_)) {
-                return None;
-            }
             let subject_ty =
                 infer_same_file_expression_type(self.db, subject, TypeContext::default());
             let definitely_matched =
@@ -3282,6 +3278,7 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
             )]));
         }
 
+        let class_type = infer_same_file_expression_type(self.db, cls, TypeContext::default());
         let narrowed_type = positive_class_pattern_type(self.db, class_type)?;
 
         Some(NarrowingConstraints::from_iter([(
