@@ -978,9 +978,10 @@ def test_match_gradual_class_captures(any_value: Any, unknown_value: Unknown) ->
 ## Mapping pattern captures
 
 Python reads an explicit mapping entry by calling `get` with a sentinel. A custom `get` method can
-therefore produce a broader type than `__getitem__`. The key type of an ordinary `Mapping` does not
-prove that another key is absent because a custom `get` method may accept a broader set of keys.
-`**rest` is always a new `dict` containing the unmatched items.
+therefore produce a broader type than `__getitem__`; the sentinel's type is treated as `object` when
+calling a custom override. The key type of an ordinary `Mapping` does not prove that another key is
+absent because a custom `get` method may accept a broader set of keys. `**rest` is always a new
+`dict` containing the unmatched items.
 
 ```py
 from collections.abc import Iterator, Mapping
@@ -1026,7 +1027,7 @@ class CustomGet(Mapping[str, int | str]):
 def test_match_mapping_uses_get(value: CustomGet) -> None:
     match value:
         case {"item": item}:
-            reveal_type(item)  # revealed: int | str
+            reveal_type(item)  # revealed: object
 
 def test_incompatible_declared_mapping_captures(value: Mapping[str, int]) -> None:
     item: str

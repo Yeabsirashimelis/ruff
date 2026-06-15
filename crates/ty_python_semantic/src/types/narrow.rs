@@ -1627,15 +1627,40 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         else {
             return Some(Type::unknown());
         };
+        let default_ty = if self.mapping_pattern_uses_standard_get(subject_ty) {
+            mapping_value_ty
+        } else {
+            Type::object()
+        };
         Some(
             get_method
-                .try_call(
-                    self.db,
-                    &CallArguments::positional([key_ty, mapping_value_ty]),
-                )
+                .try_call(self.db, &CallArguments::positional([key_ty, default_ty]))
                 .map(|bindings| bindings.return_type(self.db))
                 .unwrap_or_else(|error| error.return_type(self.db)),
         )
+    }
+
+    fn mapping_pattern_uses_standard_get(&self, subject_ty: Type<'db>) -> bool {
+        let Some(class) = subject_ty.nominal_class(self.db) else {
+            return false;
+        };
+        for base in class.iter_mro(self.db) {
+            let class = match base {
+                ClassBase::Class(class) => class,
+                ClassBase::Generic | ClassBase::Protocol => continue,
+                ClassBase::Dynamic(_) | ClassBase::Divergent(_) | ClassBase::TypedDict => {
+                    return false;
+                }
+            };
+            if class.own_class_member(self.db, None, "get").is_undefined() {
+                continue;
+            }
+            return matches!(
+                class.known(self.db),
+                Some(KnownClass::Dict | KnownClass::Mapping)
+            );
+        }
+        false
     }
 
     fn analyze_successful_mapping_pattern(
