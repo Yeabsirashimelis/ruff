@@ -1523,11 +1523,16 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 matched_element_types.push(child.matched_subject_ty);
                 analyzer.merge_bindings(&mut bindings, child.bindings);
             }
-            Some(PatternSuccessResult {
-                matched_subject_ty: analyzer.intersect_types(
+            let matched_subject_ty = if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
+                analyzer.intersect_types(
                     narrowed_subject_ty,
                     analyzer.successful_sequence_pattern_type(kind, &matched_element_types),
-                ),
+                )
+            } else {
+                narrowed_subject_ty
+            };
+            Some(PatternSuccessResult {
+                matched_subject_ty,
                 bindings,
             })
         })

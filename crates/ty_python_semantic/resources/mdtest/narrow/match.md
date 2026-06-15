@@ -477,7 +477,8 @@ def test_compatible_declared_alias(subject: object) -> None:
 ## Binding the whole pattern
 
 Binding an entire pattern with `as` keeps the subject's original type variable. If only some
-constraints can match, the binding also keeps the sequence shape established by the pattern.
+constraints can match, the binding also keeps the sequence shape established by the pattern. For a
+tuple, successful child patterns can also refine the types at fixed indices.
 
 ```py
 from typing import final, Literal, TypeVar
@@ -567,6 +568,14 @@ def test_match_starred_sequence_alias_keeps_matched_element_types(
         case [1, *_, 4] as whole:
             reveal_type(whole[0])  # revealed: Literal[1]
             reveal_type(whole[-1])  # revealed: Literal[4]
+
+def test_mutable_sequence_alias_does_not_keep_matched_element_types(
+    value: list[Literal[1, 2]],
+) -> None:
+    match value:
+        case [1] as whole:
+            whole[0] = 2
+            reveal_type(whole[0])  # revealed: Literal[1, 2]
 
 def test_match_or_alias_preserves_constrained_typevar(
     value: BoundChoiceT,
