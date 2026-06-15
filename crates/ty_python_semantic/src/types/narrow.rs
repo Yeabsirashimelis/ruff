@@ -1644,6 +1644,9 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                     return false;
                 }
             };
+            if !class.own_instance_member(self.db, "get").is_undefined() {
+                return false;
+            }
             if class.own_class_member(self.db, None, "get").is_undefined() {
                 continue;
             }

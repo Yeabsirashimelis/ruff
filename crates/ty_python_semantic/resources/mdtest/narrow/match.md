@@ -996,7 +996,7 @@ absent because a custom `get` method may accept a broader set of keys. `**rest` 
 
 ```py
 from collections.abc import Iterator, Mapping
-from typing import Literal, overload, TypeVar
+from typing import Literal, overload, Protocol, TypeVar
 
 MappingValueT = TypeVar("MappingValueT")
 Default = TypeVar("Default")
@@ -1036,6 +1036,38 @@ class CustomGet(Mapping[str, int | str]):
         return default
 
 def test_match_mapping_uses_get(value: CustomGet) -> None:
+    match value:
+        case {"item": item}:
+            reveal_type(item)  # revealed: object
+
+class InstanceGet(Protocol):
+    @overload
+    def __call__(self, key: object) -> str | None: ...
+    @overload
+    def __call__(self, key: object, default: Default) -> str | Default: ...
+
+class InstanceGetImpl:
+    @overload
+    def __call__(self, key: object) -> str | None: ...
+    @overload
+    def __call__(self, key: object, default: Default) -> str | Default: ...
+    def __call__(self, key: object, default: object = None) -> object:
+        return "custom" if key == "item" else default
+
+class InstanceGetMapping(Mapping[str, int]):
+    def __init__(self) -> None:
+        self.get: InstanceGet = InstanceGetImpl()
+
+    def __getitem__(self, key: str) -> int:
+        return 1
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(())
+
+    def __len__(self) -> int:
+        return 0
+
+def test_match_mapping_instance_get(value: InstanceGetMapping) -> None:
     match value:
         case {"item": item}:
             reveal_type(item)  # revealed: object
