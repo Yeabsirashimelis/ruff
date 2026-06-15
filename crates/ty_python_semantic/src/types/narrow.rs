@@ -912,6 +912,27 @@ fn is_exact_membership_value_domain<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool
     ty == Type::Never || ty.is_single_valued(db)
 }
 
+/// Return the type established by a successful class pattern.
+///
+/// This also handles indirect class expressions such as `PatternClass: type[A]`. It is only a
+/// positive constraint: failing to match `PatternClass()` does not exclude every `A`, because the
+/// value of `PatternClass` may be a subclass of `A`.
+fn positive_class_pattern_type<'db>(
+    db: &'db dyn Db,
+    class_expression_ty: Type<'db>,
+) -> Option<Type<'db>> {
+    match class_expression_ty {
+        Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
+            Some(callable_pattern_type(db))
+        }
+        _ => ClassInfoConstraintFunction::IsInstance.generate_constraint(
+            db,
+            class_expression_ty,
+            true,
+        ),
+    }
+}
+
 /// Return a type that contains every value that can match `pattern`.
 ///
 /// For example, given:
@@ -935,15 +956,11 @@ fn necessary_match_pattern_type<'db>(
 ) -> Type<'db> {
     match pattern {
         PatternPredicateKind::Singleton(singleton) => singleton_pattern_type(db, *singleton),
-        PatternPredicateKind::Class(cls, _) => {
-            match infer_same_file_expression_type(db, *cls, TypeContext::default()) {
-                Type::ClassLiteral(class) => Type::instance(db, class.top_materialization(db)),
-                Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
-                    callable_pattern_type(db)
-                }
-                _ => Type::object(),
-            }
-        }
+        PatternPredicateKind::Class(cls, _) => positive_class_pattern_type(
+            db,
+            infer_same_file_expression_type(db, *cls, TypeContext::default()),
+        )
+        .unwrap_or_else(Type::object),
         PatternPredicateKind::Mapping(_) => mapping_pattern_type(db),
         PatternPredicateKind::Sequence(kind) => necessary_sequence_pattern_type(db, kind),
         PatternPredicateKind::Or(predicates) => UnionType::from_elements(
@@ -2708,16 +2725,19 @@ impl<'db> NarrowingConstraintsBuilder<'db, '_> {
 
         let class_type = infer_same_file_expression_type(self.db, cls, TypeContext::default());
 
-        let narrowed_type = match class_type {
-            Type::ClassLiteral(class) => {
-                Type::instance(self.db, class.top_materialization(self.db))
-                    .negate_if(self.db, !is_positive)
+        let narrowed_type = if is_positive {
+            positive_class_pattern_type(self.db, class_type)?
+        } else {
+            match class_type {
+                Type::ClassLiteral(class) => {
+                    Type::instance(self.db, class.top_materialization(self.db)).negate(self.db)
+                }
+                Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
+                    callable_pattern_type(self.db).negate(self.db)
+                }
+                dynamic @ Type::Dynamic(_) => dynamic,
+                _ => return None,
             }
-            Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
-                callable_pattern_type(self.db).negate_if(self.db, !is_positive)
-            }
-            dynamic @ Type::Dynamic(_) => dynamic,
-            _ => return None,
         };
 
         Some(NarrowingConstraints::from_iter([(

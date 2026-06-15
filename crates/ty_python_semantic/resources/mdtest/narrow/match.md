@@ -577,6 +577,23 @@ def test_match_or_alias_preserves_constrained_typevar(
             return whole
 ```
 
+## Indirect class patterns
+
+A class pattern can use a variable whose type is `type[Class]`. Both the subject and an `as` binding
+use the instance type described by that annotation.
+
+```py
+class IndirectPattern: ...
+
+PatternClass: type[IndirectPattern] = IndirectPattern
+
+def test_match_indirect_class_pattern(value: object) -> None:
+    match value:
+        case PatternClass() as item:
+            reveal_type(item)  # revealed: IndirectPattern
+            reveal_type(value)  # revealed: IndirectPattern
+```
+
 ## Recursive class pattern aliases
 
 The same rule applies outside sequence patterns. Preserving a recursive alias lets later code keep
