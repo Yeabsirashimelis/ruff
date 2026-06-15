@@ -724,8 +724,6 @@ class PatternBox(Generic[T]):
 class IndirectCapture:
     value: int
 
-CapturePattern: type[IndirectCapture] = IndirectCapture
-
 def test_match_class_keyword_capture(value: PatternBox[T]) -> T:
     match value:
         case PatternBox(value=item) as whole:
@@ -733,7 +731,10 @@ def test_match_class_keyword_capture(value: PatternBox[T]) -> T:
             reveal_type(whole)  # revealed: PatternBox[T@test_match_class_keyword_capture]
             return item
 
-def test_match_indirect_class_keyword_capture(value: object) -> None:
+def test_match_indirect_class_keyword_capture(
+    value: object,
+    CapturePattern: type[IndirectCapture],
+) -> None:
     match value:
         case CapturePattern(value=item):
             reveal_type(item)  # revealed: int
