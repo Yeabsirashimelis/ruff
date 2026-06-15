@@ -2047,14 +2047,12 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                     (!matched_ty.is_never()).then_some(matched_ty)
                 })
                 .collect();
-            if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
-                Some(analyzer.intersect_types(
-                    narrowed_subject_ty,
-                    analyzer.successful_sequence_pattern_type(kind, &matched_element_types?),
-                ))
-            } else {
-                matched_element_types.map(|_| narrowed_subject_ty)
-            }
+            Some(analyzer.successful_sequence_subject_type(
+                kind,
+                subject_ty,
+                narrowed_subject_ty,
+                &matched_element_types?,
+            ))
         })
     }
 
