@@ -910,6 +910,21 @@ def test_match_ordered_class_alternatives_preserve_later_bindings(
             reveal_type(item)  # revealed: int | OrderedChild
 ```
 
+An argumentless class pattern cannot fail after its class check. If it matches the entire subject
+type, a later alternative cannot contribute to the binding:
+
+```py
+class DefiniteFirst: ...
+
+class UnreachableLater:
+    payload: str
+
+def test_definite_class_alternative_removes_later_bindings(value: DefiniteFirst) -> None:
+    match value:
+        case (DefiniteFirst() as item) | UnreachableLater(payload=item):
+            reveal_type(item)  # revealed: DefiniteFirst
+```
+
 ## Positional patterns for built-in classes
 
 For Python's built-in scalar and container classes, the single positional pattern receives the

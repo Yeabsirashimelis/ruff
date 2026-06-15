@@ -1347,18 +1347,27 @@ impl<'db> PatternSuccessAnalyzer<'db> {
             .unwrap_or(subject_ty)
     }
 
-    fn contains_class_pattern(pattern: &PatternPredicateKind<'_>) -> bool {
+    fn contains_protocol_class_pattern(&self, pattern: &PatternPredicateKind<'_>) -> bool {
         match pattern {
-            PatternPredicateKind::Class(..) => true,
+            PatternPredicateKind::Class(kind) => {
+                infer_same_file_expression_type(self.db, kind.class, TypeContext::default())
+                    .as_class_literal()
+                    .is_some_and(|class| class.is_protocol(self.db))
+            }
             PatternPredicateKind::Mapping(kind) => kind
                 .entries
                 .iter()
-                .any(|entry| Self::contains_class_pattern(&entry.pattern)),
-            PatternPredicateKind::Sequence(kind) => {
-                kind.patterns.iter().any(Self::contains_class_pattern)
+                .any(|entry| self.contains_protocol_class_pattern(&entry.pattern)),
+            PatternPredicateKind::Sequence(kind) => kind
+                .patterns
+                .iter()
+                .any(|pattern| self.contains_protocol_class_pattern(pattern)),
+            PatternPredicateKind::Or(patterns) => patterns
+                .iter()
+                .any(|pattern| self.contains_protocol_class_pattern(pattern)),
+            PatternPredicateKind::As(Some(pattern), _) => {
+                self.contains_protocol_class_pattern(pattern)
             }
-            PatternPredicateKind::Or(patterns) => patterns.iter().any(Self::contains_class_pattern),
-            PatternPredicateKind::As(Some(pattern), _) => Self::contains_class_pattern(pattern),
             _ => false,
         }
     }
@@ -1395,11 +1404,9 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         let mut previous_pattern = first_pattern;
 
         for pattern in patterns {
-            let definitely_matched_ty = if Self::contains_class_pattern(previous_pattern) {
-                // A class pattern can fail after its runtime type check, for example when a
-                // protocol member is only declared but is absent at runtime. Without the subject
-                // type, `definite_match_pattern_type` cannot distinguish those cases, so leave the
-                // later alternative intact.
+            let definitely_matched_ty = if self.contains_protocol_class_pattern(previous_pattern) {
+                // A runtime protocol check can fail when a statically declared member is absent at
+                // runtime. The subject-aware analysis in the next PR handles this distinction.
                 Type::Never
             } else {
                 definite_match_pattern_type(self.db, previous_pattern)
