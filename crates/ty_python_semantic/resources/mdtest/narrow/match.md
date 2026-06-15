@@ -1325,6 +1325,13 @@ def test_match_class_or_pattern_narrows_subject(
             # revealed: TaggedPayload[Literal["int"], int] | TaggedPayload[Literal["str"], str]
             reveal_type(value)
 
+def test_match_sequence_narrows_tuple_element_subject(
+    value: tuple[Literal[1, 2]],
+) -> None:
+    match value:
+        case [1]:
+            reveal_type(value[0])  # revealed: Literal[1]
+
 @final
 class FinalWithoutRequestedAttribute: ...
 

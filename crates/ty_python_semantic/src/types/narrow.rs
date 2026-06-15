@@ -2013,15 +2013,23 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         self.match_pattern_subject_type_from_arms(subject_ty, false, |analyzer, subject_ty| {
             let (narrowed_subject_ty, element_types) =
                 analyzer.sequence_pattern_arm(subject_ty, target_len, sequence_ty)?;
-            kind.patterns
+            let matched_element_types: Option<Vec<_>> = kind
+                .patterns
                 .iter()
                 .zip(element_types)
-                .all(|(pattern, element_ty)| {
-                    !analyzer
-                        .match_pattern_subject_type(pattern, element_ty)
-                        .is_never()
+                .map(|(pattern, element_ty)| {
+                    let matched_ty = analyzer.match_pattern_subject_type(pattern, element_ty);
+                    (!matched_ty.is_never()).then_some(matched_ty)
                 })
-                .then_some(narrowed_subject_ty)
+                .collect();
+            if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
+                Some(analyzer.intersect_types(
+                    narrowed_subject_ty,
+                    analyzer.successful_sequence_pattern_type(kind, &matched_element_types?),
+                ))
+            } else {
+                matched_element_types.map(|_| narrowed_subject_ty)
+            }
         })
     }
 
