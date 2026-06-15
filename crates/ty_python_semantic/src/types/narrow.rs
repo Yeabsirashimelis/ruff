@@ -924,14 +924,19 @@ fn is_exact_membership_value_domain<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool
 fn has_top_level_non_self_typevar<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool {
     match ty.resolve_type_alias(db) {
         Type::TypeVar(type_var) => !type_var.typevar(db).is_self(db),
-        Type::Union(union) => union.elements(db).iter().any(|element| {
-            matches!(
-                element.resolve_type_alias(db),
-                Type::TypeVar(type_var) if !type_var.typevar(db).is_self(db)
-            )
-        }),
+        Type::Union(union) => union
+            .elements(db)
+            .iter()
+            .any(|element| is_non_self_typevar(db, *element)),
         _ => false,
     }
+}
+
+fn is_non_self_typevar<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool {
+    matches!(
+        ty.resolve_type_alias(db),
+        Type::TypeVar(type_var) if !type_var.typevar(db).is_self(db)
+    )
 }
 
 /// Return the type established by a successful class pattern.
@@ -1299,10 +1304,36 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             PatternPredicateKind::As(None, _) | PatternPredicateKind::Star(_) => None,
             PatternPredicateKind::Or(patterns) => {
                 if has_top_level_non_self_typevar(self.db, subject_ty) {
-                    let matched_subject_ty = PatternSuccessAnalyzer::new(self.db, self.scope())
-                        .match_pattern_subject_type(pattern, subject_ty);
-                    return (!matched_subject_ty.is_equivalent_to(self.db, subject_ty))
-                        .then(|| NarrowingConstraint::intersection(matched_subject_ty));
+                    // Structural matching preserves ordinary type variables, while direct
+                    // constraints preserve the intentional narrowing form for `Self`.
+                    let resolved_subject_ty = subject_ty.resolve_type_alias(self.db);
+                    let subject_members: SmallVec<[Type<'db>; 2]> = match resolved_subject_ty {
+                        Type::Union(union) => union.elements(self.db).iter().copied().collect(),
+                        _ => smallvec![subject_ty],
+                    };
+                    let mut constraints = subject_members.into_iter().map(|subject_member| {
+                        let pattern_constraint = if is_non_self_typevar(self.db, subject_member) {
+                            let matched_subject_ty =
+                                PatternSuccessAnalyzer::new(self.db, self.scope())
+                                    .match_pattern_subject_type(pattern, subject_member);
+                            (!matched_subject_ty.is_equivalent_to(self.db, subject_member))
+                                .then(|| NarrowingConstraint::intersection(matched_subject_ty))
+                        } else {
+                            self.positive_subject_constraint(pattern, subject_member)
+                        };
+                        let subject_constraint = NarrowingConstraint::intersection(subject_member);
+                        match pattern_constraint {
+                            Some(pattern_constraint) => {
+                                subject_constraint.merge_constraint_and(pattern_constraint)
+                            }
+                            None => subject_constraint,
+                        }
+                    });
+                    let mut constraint = constraints.next()?;
+                    for member_constraint in constraints {
+                        constraint.merge_constraint_or(member_constraint);
+                    }
+                    return Some(constraint);
                 }
                 let mut patterns = patterns.iter();
                 let mut constraint =

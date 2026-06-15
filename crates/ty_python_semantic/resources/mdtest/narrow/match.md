@@ -2680,11 +2680,21 @@ reveal_type(x)  # revealed: object
 When performing narrowing on `self` inside methods on enums, we take into account that `Self` might
 refer to a subtype of the enum class, like `Literal[Answer.YES]`. This is why we do not simplify
 `Self & ~Literal[Answer.YES]` to `Literal[Answer.NO, Answer.MAYBE]`. Otherwise, we wouldn't be able
-to return `self` in the `assert_yes` method below:
+to return `self` in the `assert_yes` method below. An unrelated type variable in the subject does
+not change this representation:
 
 ```py
 from enum import Enum
+from typing import TypeVar, final
 from typing_extensions import Self, assert_never
+
+@final
+class OtherA: ...
+
+@final
+class OtherB: ...
+
+OtherT = TypeVar("OtherT", OtherA, OtherB)
 
 class Answer(Enum):
     NO = 0
@@ -2739,6 +2749,11 @@ class Answer(Enum):
             case _:
                 reveal_type(self)  # revealed: Self@assert_yes & ~Literal[Answer.YES]
                 raise ValueError("Answer is not YES")
+
+    def mixed_typevar_subject(self, value: Self | OtherT) -> None:
+        match value:
+            case Answer.NO | Answer.MAYBE:
+                reveal_type(value)  # revealed: Self@mixed_typevar_subject
 
 Answer.YES.is_yes_through_class_member()
 
