@@ -1285,6 +1285,12 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             }
             PatternPredicateKind::As(None, _) | PatternPredicateKind::Star(_) => None,
             PatternPredicateKind::Or(patterns) => {
+                if subject_ty.has_typevar(self.db) {
+                    let matched_subject_ty = PatternSuccessAnalyzer::new(self.db, self.scope())
+                        .match_pattern_subject_type(pattern, subject_ty);
+                    return (!matched_subject_ty.is_equivalent_to(self.db, subject_ty))
+                        .then(|| NarrowingConstraint::intersection(matched_subject_ty));
+                }
                 let mut patterns = patterns.iter();
                 let mut constraint =
                     self.positive_subject_constraint(patterns.next()?, subject_ty)?;
@@ -1523,11 +1529,17 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 self.match_pattern_subject_type(pattern, subject_ty)
             }
             PatternPredicateKind::As(None, _) | PatternPredicateKind::Star(_) => subject_ty,
-            PatternPredicateKind::Or(patterns) => UnionType::from_elements(
-                self.db,
-                patterns
-                    .iter()
-                    .map(|pattern| self.match_pattern_subject_type(pattern, subject_ty)),
+            PatternPredicateKind::Or(patterns) => self.match_pattern_subject_type_from_arms(
+                subject_ty,
+                false,
+                |analyzer, subject_ty| {
+                    Some(UnionType::from_elements(
+                        analyzer.db,
+                        patterns.iter().map(|pattern| {
+                            analyzer.match_pattern_subject_type(pattern, subject_ty)
+                        }),
+                    ))
+                },
             ),
             PatternPredicateKind::Sequence(kind) => {
                 self.match_sequence_pattern_subject_type(kind, subject_ty)

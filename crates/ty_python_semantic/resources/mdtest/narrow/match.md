@@ -1325,6 +1325,20 @@ def test_match_class_or_pattern_narrows_subject(
             # revealed: TaggedPayload[Literal["int"], int] | TaggedPayload[Literal["str"], str]
             reveal_type(value)
 
+@final
+class SubjectChoiceA: ...
+
+@final
+class SubjectChoiceB: ...
+
+SubjectChoiceT = TypeVar("SubjectChoiceT", SubjectChoiceA, SubjectChoiceB)
+
+def test_match_class_or_pattern_preserves_constrained_typevar_subject(value: SubjectChoiceT | str) -> None:
+    match value:
+        case SubjectChoiceA() | SubjectChoiceB():
+            # revealed: SubjectChoiceT@test_match_class_or_pattern_preserves_constrained_typevar_subject
+            reveal_type(value)
+
 def test_match_sequence_narrows_tuple_element_subject(
     value: tuple[Literal[1, 2]],
 ) -> None:
