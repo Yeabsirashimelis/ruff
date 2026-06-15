@@ -480,7 +480,7 @@ Binding an entire pattern with `as` keeps the subject's original type variable. 
 constraints can match, the binding also keeps the sequence shape established by the pattern.
 
 ```py
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 BoundSequenceT = TypeVar("BoundSequenceT", bound=tuple[object])
 ConstrainedSequenceT = TypeVar(
@@ -544,6 +544,21 @@ def test_match_sequence_alias_preserves_element_narrowing(
             return whole[0]
         case _:
             return 0
+
+def test_match_sequence_alias_keeps_matched_element_types(
+    value: tuple[Literal[1, 2]],
+) -> None:
+    match value:
+        case [1] as whole:
+            reveal_type(whole[0])  # revealed: Literal[1]
+
+def test_match_starred_sequence_alias_keeps_matched_element_types(
+    value: tuple[Literal[1, 2], str, Literal[3, 4]],
+) -> None:
+    match value:
+        case [1, *_, 4] as whole:
+            reveal_type(whole[0])  # revealed: Literal[1]
+            reveal_type(whole[-1])  # revealed: Literal[4]
 ```
 
 ## Recursive class pattern aliases

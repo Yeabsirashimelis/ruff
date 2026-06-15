@@ -1498,17 +1498,22 @@ impl<'db> PatternSuccessAnalyzer<'db> {
 
                 let mut arm_bindings = BTreeMap::new();
                 let mut arm_matches = true;
+                let mut matched_element_types = Vec::with_capacity(kind.patterns.len());
                 for (pattern, element_ty) in kind.patterns.iter().zip(element_types) {
                     let child = self.analyze_successful_pattern(pattern, element_ty);
                     if child.matched_subject_ty.is_never() {
                         arm_matches = false;
                         break;
                     }
+                    matched_element_types.push(child.matched_subject_ty);
                     self.merge_bindings(&mut arm_bindings, child.bindings);
                 }
 
                 if arm_matches {
-                    matched_types.add_in_place(narrowed_subject_ty);
+                    matched_types.add_in_place(self.intersect_types(
+                        narrowed_subject_ty,
+                        self.successful_sequence_pattern_type(kind, &matched_element_types),
+                    ));
                     self.merge_bindings(&mut bindings, arm_bindings);
                 }
             }
@@ -1528,6 +1533,23 @@ impl<'db> PatternSuccessAnalyzer<'db> {
         PatternSuccessResult {
             matched_subject_ty: matched_subject_types.build(),
             bindings,
+        }
+    }
+
+    fn successful_sequence_pattern_type(
+        &self,
+        kind: &SequencePatternPredicateKind<'db>,
+        matched_element_types: &[Type<'db>],
+    ) -> Type<'db> {
+        if let Some((prefix, suffix)) = kind.split_around_star() {
+            let prefix_types = matched_element_types.iter().copied().take(prefix.len());
+            let suffix_types = matched_element_types
+                .iter()
+                .copied()
+                .skip(matched_element_types.len().saturating_sub(suffix.len()));
+            starred_sequence_pattern_type(self.db, prefix_types, suffix_types)
+        } else {
+            exact_sequence_pattern_type(self.db, matched_element_types.iter().copied())
         }
     }
 
