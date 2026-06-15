@@ -1526,19 +1526,38 @@ impl<'db> PatternSuccessAnalyzer<'db> {
                 matched_element_types.push(child.matched_subject_ty);
                 analyzer.merge_bindings(&mut bindings, child.bindings);
             }
-            let matched_subject_ty = if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
-                analyzer.intersect_types(
-                    narrowed_subject_ty,
-                    analyzer.successful_sequence_pattern_type(kind, &matched_element_types),
-                )
-            } else {
-                narrowed_subject_ty
-            };
+            let matched_subject_ty = analyzer.successful_sequence_subject_type(
+                kind,
+                subject_ty,
+                narrowed_subject_ty,
+                &matched_element_types,
+            );
             Some(PatternSuccessResult {
                 matched_subject_ty,
                 bindings,
             })
         })
+    }
+
+    /// Refine a fixed tuple using the types that matched its child patterns.
+    ///
+    /// Mutable sequences keep only the type established before matching the children because a
+    /// later mutation can invalidate facts about individual elements.
+    fn successful_sequence_subject_type(
+        &self,
+        kind: &SequencePatternPredicateKind<'db>,
+        subject_ty: Type<'db>,
+        narrowed_subject_ty: Type<'db>,
+        matched_element_types: &[Type<'db>],
+    ) -> Type<'db> {
+        if subject_ty.exact_tuple_instance_spec(self.db).is_some() {
+            self.intersect_types(
+                narrowed_subject_ty,
+                self.successful_sequence_pattern_type(kind, matched_element_types),
+            )
+        } else {
+            narrowed_subject_ty
+        }
     }
 
     fn successful_sequence_pattern_type(
