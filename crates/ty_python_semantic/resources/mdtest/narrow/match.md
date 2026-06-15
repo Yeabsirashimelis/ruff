@@ -578,12 +578,14 @@ def test_mutable_sequence_alias_does_not_keep_matched_element_types(
             reveal_type(whole[0])  # revealed: Literal[1, 2]
 
 def test_match_or_alias_preserves_constrained_typevar(
-    value: BoundChoiceT,
+    value: BoundChoiceT | str,
 ) -> BoundChoiceT:
     match value:
         case (BoundA() | BoundB()) as whole:
             reveal_type(whole)  # revealed: BoundChoiceT@test_match_or_alias_preserves_constrained_typevar
             return whole
+        case _:
+            raise ValueError
 ```
 
 ## Indirect class patterns
